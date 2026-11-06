@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FleetFlow.Api.Contracts;
+using FleetFlow.Domain.Common;
 using FleetFlow.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -100,6 +103,26 @@ public sealed class HealthTests(PostgreSqlFixture database) : IClassFixture<Post
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("http_error", problem.RootElement.GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData(FailureKind.Validation, 422)]
+    [InlineData(FailureKind.Conflict, 409)]
+    [InlineData(FailureKind.NotFound, 404)]
+    public async Task Business_failures_map_to_safe_problem_details_without_new_business_routes(FailureKind kind, int expectedStatus)
+    {
+        await using var factory = new FleetFlowApiFactory(database.ConnectionString);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var handler = Assert.Single(scope.ServiceProvider.GetServices<IExceptionHandler>());
+        var context = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+        await using var stream = new MemoryStream();
+        context.Response.Body = stream;
+        Assert.True(await handler.TryHandleAsync(context, new FleetFlowException("test_business_rule", "A safe business message.", kind), CancellationToken));
+        stream.Position = 0;
+        using var problem = await JsonDocument.ParseAsync(stream, cancellationToken: CancellationToken);
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
+        Assert.Equal("test_business_rule", problem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("A safe business message.", problem.RootElement.GetProperty("detail").GetString());
     }
 
     private string UnavailableConnectionString() => new NpgsqlConnectionStringBuilder(database.ConnectionString)

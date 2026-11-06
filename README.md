@@ -2,7 +2,7 @@
 
 FleetFlow is an independently designed personal portfolio project for logistics and fleet management, built to demonstrate C#/.NET backend architecture, PostgreSQL persistence, React/TypeScript, and automated testing.
 
-**Current milestone: M0 — workspace and infrastructure.** The API, database connection, frontend foundation, and health checks work together. Shipment workflows and business data are not implemented yet. This unauthenticated environment is for local development only.
+**Current milestone: M1 — domain model, persistence, and business logic.** The domain and application services support shipment rules and transactional history against PostgreSQL. Business HTTP endpoints and frontend shipment workflows are not implemented yet. This unauthenticated environment is for local development only.
 
 ## Requirements
 
@@ -66,7 +66,7 @@ In a local development shell, load the generated environment and export the ASP.
 set -a
 . ./.env
 set +a
-export ConnectionStrings__FleetFlow="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Timeout=5;Command Timeout=5"
+export ConnectionStrings__FleetFlow="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Timeout=5;Command Timeout=5;GSS Encryption Mode=Disable"
 dotnet watch --project backend/src/FleetFlow.Api
 ```
 
@@ -84,7 +84,7 @@ dotnet format backend/FleetFlow.slnx --verify-no-changes --no-restore
 dotnet test --solution backend/FleetFlow.slnx --no-restore
 ```
 
-The solution uses xUnit and Microsoft Testing Platform. Unit tests guard architecture boundaries. Integration tests start an isolated PostgreSQL 18 container through Testcontainers; Docker must be running. They do not use, reset, or depend on the development database. They cover database connectivity, independent liveness, safe dependency failures, missing routes, and Development-only OpenAPI.
+The solution uses xUnit and Microsoft Testing Platform. Unit tests guard architecture boundaries, input validation, assignment eligibility, transitions, and deadline classification. Integration tests start an isolated PostgreSQL 18 container through Testcontainers; Docker must be running. They do not use, reset, or depend on the development database. They cover migrations, constraints, fictional seeds, atomic shipment/history writes, concurrent reservations, stale updates, and all M0 health/OpenAPI behavior. Each M1 test uses a fresh isolated database.
 
 If Testcontainers cannot find Docker Desktop's socket on macOS, use the active Docker context:
 
@@ -133,7 +133,22 @@ docker compose down --volumes
 docker compose up --build -d
 ```
 
-M0 has no schema migrations or seed data. Schema creation, migration commands, fictional seeds, and seed/reset tests begin in M1. Changing the database username/password in `.env` does not change credentials already stored in an existing volume; retain the original values or intentionally reset your local database.
+M1 schema/data initialization is explicit. After building the API image, apply the migration and optionally seed fictional development data:
+
+```sh
+docker compose run --rm --no-deps api --migrate --seed
+```
+
+PostgreSQL must already be running (`docker compose up -d postgres`). Use `--migrate` alone for an empty schema. Use `--seed` alone only after migration. These CLI operations exit after completion and reject environments other than Development. A normal API start never migrates or seeds automatically.
+
+For a host-run API, export `ConnectionStrings__FleetFlow` as shown above, then run:
+
+```sh
+dotnet ef database update --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api
+dotnet run --project backend/src/FleetFlow.Api -- --seed
+```
+
+The launch profile selects Development for `dotnet run`. The seed is idempotent: rerunning preserves existing sample IDs, dates, versions, and history. It adds 10 fictional customers, 12 drivers, 8 vehicles, 36 shipments, and their history. Initial overdue/due-soon records are relative to the first seed; they are not moved at every restart. The seeder refuses an existing non-demo database instead of overwriting it. To regenerate relative sample dates, intentionally reset the local volume, restart services, and run initialization again. No real customer or driver data is included. Changing the database username/password in `.env` does not change credentials already stored in an existing volume; retain the original values or intentionally reset your local database.
 
 ## Troubleshooting
 
@@ -146,7 +161,7 @@ M0 has no schema migrations or seed data. Schema creation, migration commands, f
 
 ## Structure and roadmap
 
-See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), and the [M0 verification report](docs/m0-verification.md).
+See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), the [M0 verification report](docs/m0-verification.md), and [M1 domain/persistence decisions](docs/decisions/0002-domain-persistence.md), and the [M1 verification report](docs/m1-verification.md).
 
 - **M0:** environment, four backend layers, health checks, frontend foundation, tests.
 - **M1:** domain rules, relational schema, migrations, fictional seeds, transactions, concurrency.
@@ -155,6 +170,6 @@ See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/
 - **M4:** expanded quality checks, GitHub Actions CI, documentation, screenshots, portfolio packaging.
 - Optional later: established authentication, SignalR, scoped AI assistance, and mobile exploration.
 
-GitHub Actions, screenshots, a business ER diagram, public deployment, and demo credentials are not provided in M0. No shipment features, authentication, AI, paid APIs, or additional services have been introduced.
+GitHub Actions, screenshots, a business ER diagram, public deployment, and demo credentials are not provided in M0. No business HTTP endpoints, frontend shipment features, authentication, AI, paid APIs, or additional services have been introduced.
 
 Licensed under [MIT](LICENSE).

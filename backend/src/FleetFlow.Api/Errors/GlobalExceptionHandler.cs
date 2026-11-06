@@ -1,3 +1,4 @@
+using FleetFlow.Domain.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,18 +11,27 @@ internal sealed class GlobalExceptionHandler(
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        logger.LogError(exception, "Unexpected request failure. TraceId: {TraceId}", httpContext.TraceIdentifier);
-        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        var failure = exception as FleetFlowException;
+        if (failure is null)
+            logger.LogError(exception, "Unexpected request failure. TraceId: {TraceId}", httpContext.TraceIdentifier);
+        var status = failure?.Kind switch
+        {
+            FailureKind.Validation => StatusCodes.Status422UnprocessableEntity,
+            FailureKind.Conflict => StatusCodes.Status409Conflict,
+            FailureKind.NotFound => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status500InternalServerError
+        };
+        httpContext.Response.StatusCode = status;
 
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             ProblemDetails = new ProblemDetails
             {
-                Status = StatusCodes.Status500InternalServerError,
-                Title = "An unexpected error occurred.",
-                Detail = "Please try again. If the problem persists, provide the trace identifier.",
-                Extensions = { ["code"] = "unexpected_error" }
+                Status = status,
+                Title = failure is null ? "An unexpected error occurred." : "The operation could not be completed.",
+                Detail = failure?.Message ?? "Please try again. If the problem persists, provide the trace identifier.",
+                Extensions = { ["code"] = failure?.Code ?? "unexpected_error" }
             }
         });
     }

@@ -1,7 +1,10 @@
 using FleetFlow.Api.Errors;
 using FleetFlow.Infrastructure;
+using FleetFlow.Infrastructure.Persistence;
 
-var builder = WebApplication.CreateBuilder(args);
+var migrate = args.Contains("--migrate");
+var seed = args.Contains("--seed");
+var builder = WebApplication.CreateBuilder(args.Where(arg => arg is not ("--migrate" or "--seed")).ToArray());
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -17,6 +20,12 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+if (migrate || seed)
+{
+    await DevelopmentDatabase.InitializeAsync(app.Services, app.Environment.EnvironmentName, migrate, seed);
+    return;
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

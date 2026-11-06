@@ -1,5 +1,8 @@
+using FleetFlow.Application.Shipments;
 using FleetFlow.Infrastructure.Health;
 using FleetFlow.Infrastructure.Persistence;
+using FleetFlow.Infrastructure.Persistence.Seeding;
+using FleetFlow.Infrastructure.Shipments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +21,10 @@ public static class DependencyInjection
         });
 
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IShipmentStore, EfShipmentStore>();
+        services.AddScoped<ShipmentService>();
+        services.AddScoped<DevelopmentSeeder>();
         return services;
     }
 }
