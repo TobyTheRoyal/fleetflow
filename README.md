@@ -2,7 +2,7 @@
 
 FleetFlow is an independently designed personal portfolio project for logistics and fleet management, built to demonstrate C#/.NET backend architecture, PostgreSQL persistence, React/TypeScript, and automated testing.
 
-**Current milestone: M1 — domain model, persistence, and business logic.** The domain and application services support shipment rules and transactional history against PostgreSQL. Business HTTP endpoints and frontend shipment workflows are not implemented yet. This unauthenticated environment is for local development only.
+**Current milestone: M2 — REST API.** Versioned controller endpoints expose the complete shipment lifecycle, fleet/customer management, server-side filtering and real dashboard statistics. The existing frontend remains the M0 infrastructure screen; frontend workflows start in M3. This unauthenticated environment is for local development only.
 
 ## Requirements
 
@@ -71,6 +71,17 @@ dotnet watch --project backend/src/FleetFlow.Api
 ```
 
 The launch profile selects Development and `http://localhost:5080`. ASP.NET Core does not automatically read Compose's `.env`. For a persistent host-only setup, user secrets are another supported configuration source; do not put credentials in `appsettings.json`. Container communication uses `postgres:5432`, whereas host tools use the published localhost port.
+
+## REST API
+
+See the [API v1 guide](docs/api/v1.md) and [Development OpenAPI](http://127.0.0.1:5080/openapi/v1.json). After the schema is migrated, start with:
+
+```sh
+curl http://127.0.0.1:5080/api/v1/dashboard/summary
+curl 'http://127.0.0.1:5080/api/v1/shipments?page=1&pageSize=20'
+```
+
+All shipment mutations require the current version. Each collection is paged; JSON enums are named strings and timestamps include an explicit offset. The API is unauthenticated and must remain local-only.
 
 ## Build, formatting, and tests
 
@@ -161,7 +172,7 @@ The launch profile selects Development for `dotnet run`. The seed is idempotent:
 
 ## Structure and roadmap
 
-See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), the [M0 verification report](docs/m0-verification.md), and [M1 domain/persistence decisions](docs/decisions/0002-domain-persistence.md), and the [M1 verification report](docs/m1-verification.md).
+See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), the [M0 verification report](docs/m0-verification.md), and [M1 domain/persistence decisions](docs/decisions/0002-domain-persistence.md), the [M1 verification report](docs/m1-verification.md), and the [M2 verification report](docs/m2-verification.md).
 
 - **M0:** environment, four backend layers, health checks, frontend foundation, tests.
 - **M1:** domain rules, relational schema, migrations, fictional seeds, transactions, concurrency.
@@ -170,6 +181,6 @@ See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/
 - **M4:** expanded quality checks, GitHub Actions CI, documentation, screenshots, portfolio packaging.
 - Optional later: established authentication, SignalR, scoped AI assistance, and mobile exploration.
 
-GitHub Actions, screenshots, a business ER diagram, public deployment, and demo credentials are not provided in M0. No business HTTP endpoints, frontend shipment features, authentication, AI, paid APIs, or additional services have been introduced.
+GitHub Actions, screenshots, a business ER diagram, public deployment, and demo credentials are not provided in M0. No new frontend pages, authentication, AI, paid APIs, or additional services have been introduced. Business API requests and response/error examples are documented in the [API v1 guide](docs/api/v1.md).
 
 Licensed under [MIT](LICENSE).

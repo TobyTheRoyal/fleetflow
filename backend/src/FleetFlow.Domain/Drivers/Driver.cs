@@ -23,4 +23,10 @@ public sealed class Driver
         LicenseCategory = Guard.Optional(licenseCategory, "License category", 30),
         CreatedAtUtc = Guard.Utc(now)
     };
+    public void Update(string employeeNumber, string firstName, string lastName, bool active, string? licenseCategory)
+    {
+        var validated = Create(employeeNumber, firstName, lastName, active, licenseCategory, CreatedAtUtc, Id);
+        EmployeeNumber = validated.EmployeeNumber; FirstName = validated.FirstName; LastName = validated.LastName;
+        Active = validated.Active; LicenseCategory = validated.LicenseCategory;
+    }
 }

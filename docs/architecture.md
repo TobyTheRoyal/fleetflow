@@ -1,6 +1,6 @@
 # FleetFlow architecture
 
-FleetFlow is an independently designed personal portfolio project for logistics operations. M1 adds the domain model, PostgreSQL schema and application business logic to the M0 infrastructure. Business HTTP endpoints, authentication, and dashboard metrics are not exposed yet.
+FleetFlow is an independently designed personal portfolio project for logistics operations. M2 exposes the M1 domain and PostgreSQL persistence through versioned controller endpoints. Dashboard statistics are SQL-backed. Authentication and frontend business workflows remain later milestones.
 
 ## Backend boundaries
 
@@ -28,7 +28,7 @@ The DbContext uses EF Core 10 and the Npgsql 10 provider. A health check exercis
 | `GET /health/ready` | All environments | Database connectivity, 200 when healthy; safe ProblemDetails with 503 otherwise |
 | `GET /openapi/v1.json` | Development only | Generated API contract |
 
-Problems include a machine-readable `code` and request `traceId`. Unexpected exceptions receive a generic 500 response; connection credentials and exception details are never returned. Future business endpoints use `/api/v1` and explicit status/assignment commands. No CORS policy is needed locally: Vite proxies same-origin requests to the API.
+Problems include a machine-readable `code` and request `traceId`. Unexpected exceptions receive a generic 500 response; connection credentials and exception details are never returned. Business endpoints use `/api/v1` and explicit status/assignment commands. Dedicated HTTP DTOs map to application services/read models; EF entities never form the API contract. No CORS policy is needed locally: Vite proxies same-origin requests to the API.
 
 ## Frontend
 
@@ -54,8 +54,8 @@ erDiagram
 
 Each shipment has one required customer and an optional driver/vehicle pair. Addresses are EF complex values stored as columns on Shipments. All foreign keys restrict deletion; history is immutable. Database indexes support shipment numbers, customers, resource lookups, status/deadline, creation order, and shipment/event time.
 
-## M1 and next boundary
+## M2 and next boundary
 
 M1 implements entities, migration, constraints, fictional seeds, domain/application validation, transactional event history, and PostgreSQL concurrency tests. Shipment versions protect stale updates; row locks coordinate resource reservations across shipments. See [ADR 0002](decisions/0002-domain-persistence.md) for semantics and trade-offs.
 
-HTTP business endpoints follow in M2, frontend workflows in M3, and CI/portfolio packaging in M4. The existing M0 screen and health routes remain unchanged.
+M2 adds read projections, SQL dashboard aggregates, bounded pagination, API contracts and HTTP/PostgreSQL tests. Fleet updates share the reservation locks and transaction implementation. See [ADR 0003](decisions/0003-rest-api.md) and the [API guide](api/v1.md). Frontend workflows follow in M3 and CI/portfolio packaging in M4. The M0 screen and health routes remain unchanged.

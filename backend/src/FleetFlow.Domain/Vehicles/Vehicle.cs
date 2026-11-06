@@ -28,4 +28,9 @@ public sealed class Vehicle
             CreatedAtUtc = Guard.Utc(now)
         };
     }
+    public void Update(string plateNumber, VehicleType type, decimal maxPayloadKg, VehicleStatus status)
+    {
+        var validated = Create(plateNumber, type, maxPayloadKg, status, CreatedAtUtc, Id);
+        PlateNumber = validated.PlateNumber; Type = validated.Type; MaxPayloadKg = validated.MaxPayloadKg; Status = validated.Status;
+    }
 }

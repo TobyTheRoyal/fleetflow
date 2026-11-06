@@ -9,36 +9,9 @@ using Npgsql;
 
 namespace FleetFlow.Infrastructure.Shipments;
 
-internal sealed class EfShipmentStore(FleetFlowDbContext db) : IShipmentStore
+internal sealed class EfShipmentStore(FleetFlowDbContext db, EfTransaction transaction) : IShipmentStore
 {
-    public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            var result = await action(cancellationToken);
-            await db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return result;
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            throw FleetFlowException.Conflict("stale_version", "This shipment has changed. Reload it before trying again.");
-        }
-        catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            throw FleetFlowException.Conflict("duplicate_value", "A record with this unique value already exists.");
-        }
-        catch (PostgresException exception) when (exception.SqlState is PostgresErrorCodes.DeadlockDetected or PostgresErrorCodes.SerializationFailure)
-        {
-            throw FleetFlowException.Conflict("concurrent_operation", "A competing operation changed the reservation. Please retry.");
-        }
-        finally
-        {
-            // A failed operation must not leave pending changes/events in a reused request scope.
-            db.ChangeTracker.Clear();
-        }
-    }
+    public Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken) => transaction.RunAsync(action, cancellationToken);
 
     public async Task<Shipment> GetAsync(Guid id, CancellationToken cancellationToken) =>
         await db.Shipments.SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw FleetFlowException.NotFound("shipment");
