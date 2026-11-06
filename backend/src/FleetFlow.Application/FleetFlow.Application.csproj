@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../FleetFlow.Domain/FleetFlow.Domain.csproj" />
+  </ItemGroup>
+</Project>

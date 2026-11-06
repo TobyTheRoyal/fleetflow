@@ -1,0 +1,16 @@
+**/.git
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/TestResults
+**/coverage
+**/.env
+**/.env.*
+**/appsettings.Local.json
+**/AGENTS.md
+**/FLEETFLOW_SPEC.md
+**/CODEX_MILESTONES.md
+**/README_FIRST.md
+frontend
+docs

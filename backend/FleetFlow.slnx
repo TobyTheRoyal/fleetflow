@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FleetFlow.Api/FleetFlow.Api.csproj" />
+    <Project Path="src/FleetFlow.Application/FleetFlow.Application.csproj" />
+    <Project Path="src/FleetFlow.Domain/FleetFlow.Domain.csproj" />
+    <Project Path="src/FleetFlow.Infrastructure/FleetFlow.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FleetFlow.UnitTests/FleetFlow.UnitTests.csproj" />
+    <Project Path="tests/FleetFlow.IntegrationTests/FleetFlow.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

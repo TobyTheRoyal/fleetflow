@@ -1,0 +1,30 @@
+# Private planning material must never enter the public repository.
+AGENTS.md
+FLEETFLOW_SPEC.md
+CODEX_MILESTONES.md
+README_FIRST.md
+fleetflow_codex_pack/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+
+# Generated output and local tools
+**/bin/
+**/obj/
+**/TestResults/
+**/node_modules/
+**/dist/
+**/coverage/
+**/playwright-report/
+**/test-results/
+.dotnet/
+.nuget/
+.vs/
+.idea/
+.DS_Store
+*.user
+*.suo
+*.log
