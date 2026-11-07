@@ -24,6 +24,30 @@ internal static class ApiExamples
         var route = context.Description.RelativePath?.Split('?')[0] ?? "";
         var method = context.Description.HttpMethod;
         if (!route.StartsWith("api/v1/", StringComparison.Ordinal)) return Task.CompletedTask;
+        if (method is "POST" or "PUT")
+        {
+            operation.Parameters ??= [];
+            operation.Parameters.Add(new OpenApiParameter
+            {
+                Name = "X-CSRF-TOKEN",
+                In = ParameterLocation.Header,
+                Required = true,
+                Description = "Request token from GET /api/v1/auth/csrf, paired with its HttpOnly antiforgery cookie. Refresh after login/logout; never retry a write automatically.",
+                Schema = new OpenApiSchema { Type = JsonSchemaType.String }
+            });
+        }
+        if (route.StartsWith("api/v1/auth", StringComparison.Ordinal) || route.StartsWith("api/v1/users", StringComparison.Ordinal))
+        {
+            operation.Description = "Identity cookie session. Login and CSRF bootstrap are anonymous; user management requires Admin. Every unsafe request requires X-CSRF-TOKEN. Passwords are request-only and never returned. Session lifetime is 30 minutes.";
+            if (operation.Responses is { } accountResponses)
+                foreach (var (status, accountResponse) in accountResponses)
+                    if (status is "400" or "401" or "403" or "409" or "422" or "429" && accountResponse.Content is { } error)
+                    {
+                        var media = error.Values.FirstOrDefault() ?? new OpenApiMediaType();
+                        error.Clear(); error["application/problem+json"] = media;
+                    }
+            return Task.CompletedTask;
+        }
         object? request = route switch
         {
             "api/v1/shipments" when method == "POST" => new CreateShipmentRequest

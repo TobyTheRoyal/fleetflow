@@ -4,6 +4,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace FleetFlow.Api.Controllers;
 
+[Microsoft.AspNetCore.Authorization.AllowAnonymous]
 [ApiController]
 [Route("health")]
 public sealed class HealthController(HealthCheckService healthChecks) : ControllerBase

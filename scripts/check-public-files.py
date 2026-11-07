@@ -7,8 +7,9 @@ root = Path(__file__).resolve().parent.parent
 paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=root).decode().split('\0')
 forbidden = {'AGENTS.md', 'FLEETFLOW_SPEC.md', 'CODEX_MILESTONES.md', 'README_FIRST.md', 'appsettings.Local.json'}
 secret_values = []
-local = root / '.env'
-if local.exists():
+local_files = [root / '.env', root / '.env.demo']
+for local in local_files:
+ if local.exists():
     for row in local.read_text().splitlines():
         key, separator, value = row.partition('=')
         if separator and any(word in key.upper() for word in ('PASSWORD', 'TOKEN', 'SECRET')):

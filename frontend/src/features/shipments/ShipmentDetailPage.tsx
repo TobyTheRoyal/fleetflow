@@ -1,3 +1,4 @@
+import { useCanManage } from '@/features/auth/context'
 import { ShipmentTimeline } from './ShipmentTimeline'
 import { statusLabel } from '@/lib/status'
 import { useState, useRef } from 'react'
@@ -32,6 +33,7 @@ const next: Partial<
   InTransit: { status: 'Delivered', label: 'Mark delivered' },
 }
 export function ShipmentDetailPage() {
+  const canManage = useCanManage()
   const { id } = useParams()
   const query = useQuery({
     queryKey: ['shipments', id],
@@ -50,7 +52,7 @@ export function ShipmentDetailPage() {
     return (
       <ErrorNotice error={query.error} retry={() => void query.refetch()} />
     )
-  const editable = ['Draft', 'Planned'].includes(shipment.status)
+  const editable = canManage && ['Draft', 'Planned'].includes(shipment.status)
   const action = next[shipment.status]
   return (
     <>
@@ -79,7 +81,7 @@ export function ShipmentDetailPage() {
               </Link>
             </Button>
           )}
-          {action && (
+          {canManage && action && (
             <Button
               disabled={
                 shipment.status === 'Draft' &&

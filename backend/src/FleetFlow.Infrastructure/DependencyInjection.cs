@@ -3,6 +3,7 @@ using FleetFlow.Application.Queries;
 using FleetFlow.Application.Shipments;
 using FleetFlow.Infrastructure.Fleet;
 using FleetFlow.Infrastructure.Health;
+using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
 using FleetFlow.Infrastructure.Persistence.Seeding;
 using FleetFlow.Infrastructure.Queries;
@@ -33,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<FleetService>();
         services.AddScoped<ILogisticsQueries, EfLogisticsQueries>();
         services.AddScoped<DevelopmentSeeder>();
+        services.AddScoped<UserAdministration>();
         return services;
     }
 }

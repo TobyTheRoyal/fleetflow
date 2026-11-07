@@ -1,6 +1,6 @@
 # FleetFlow architecture
 
-FleetFlow is an independently designed personal portfolio project for logistics operations. M2 exposes the M1 domain and PostgreSQL persistence through versioned controller endpoints. Dashboard statistics are SQL-backed. M3 adds a responsive, real-data operations frontend; authentication remains a later milestone.
+FleetFlow is an independently designed personal portfolio project for logistics operations. M2 exposes the M1 domain and PostgreSQL persistence through versioned controller endpoints. Dashboard statistics are SQL-backed. M3 adds a responsive, real-data operations frontend; Identity authentication is added in M5a.
 
 ## Backend boundaries
 
@@ -44,7 +44,7 @@ All schedule inputs and displays use Europe/Vienna. Temporal converts to UTC, re
 
 ## Development and versioning
 
-PostgreSQL and the non-root API run in Docker; Vite runs locally. Published ports bind to loopback. PostgreSQL 18 stores data in a named volume mounted at `/var/lib/postgresql`, following the image's version-specific layout. Development has no authentication and is not suitable for public deployment.
+PostgreSQL and the non-root API run in Docker; Vite runs locally. Published ports bind to loopback. PostgreSQL 18 stores data in a named volume mounted at `/var/lib/postgresql`, following the image's version-specific layout. Identity protects the workspace in Development too; deployment hardening is still incomplete.
 
 `global.json` pins the stable .NET 10 SDK and selects Microsoft Testing Platform for xUnit. Central NuGet versions and committed package lockfiles keep dependencies coherent. Node is declared in `.nvmrc`; npm uses exact direct versions and a committed lockfile. Container tags are explicit; upgrades should update the pins and rerun the same verification commands.
 
@@ -71,3 +71,7 @@ M2 adds read projections, SQL dashboard aggregates, bounded pagination, API cont
 M4 retains the modular monolith and existing wire contracts. It adds Release/coverage/real-PostgreSQL checks, least-privilege GitHub Actions configuration, safe application error-log metadata, non-cacheable/nosniff API responses, hardened local API container settings, query/error recovery tests and reproducible browser/accessibility verification. PostgreSQL concurrency failures are recognized through provider/EF wrapper chains and remain explicit 409 conflicts with atomic rollback.
 
 Frontend changes address actual contrast, label/focus, pagination recovery and ambiguous-write issues. Code remains feature-based; no global client-state store, new business endpoint or architectural framework was introduced. See the [M4 review](m4-review.md), [security review](security.md), [CI design](ci.md) and [actual verification report](m4-verification.md). Authentication, SignalR, AI and public deployment remain outside M4.
+
+## M5a identity boundary
+
+Infrastructure now owns Identity users/EF stores, additive schema, administrative transactions and Development-only user provisioning. API owns cookie authentication, CSRF filters and authorization policies. User administration controllers remain thin; shipment services and transaction rules are unchanged. Data Protection keys persist in PostgreSQL for restart continuity. React has a separate auth feature with guarded routes, same-account draft recovery and role-aware actions. See [authentication](authentication.md) and [M5a verification](m5a-verification.md). SignalR remains outside this milestone.

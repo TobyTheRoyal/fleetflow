@@ -1,6 +1,8 @@
 using FleetFlow.Api.Contracts;
+using FleetFlow.Api.Security;
 using FleetFlow.Application.Fleet;
 using FleetFlow.Application.Queries;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FleetFlow.Api.Controllers;
@@ -15,6 +17,7 @@ public sealed class CustomersController(FleetService service, ILogisticsQueries 
         Ok(PageResponse<CustomerResponse>.Map(await queries.CustomersAsync(query.ToPage(), token), CustomerResponse.From));
 
     [HttpPost]
+    [Authorize(Policy = SessionSecurity.Write)]
     [EndpointSummary("Create a customer with validated contact details")]
     [ProducesResponseType<CustomerResponse>(201)]
     public async Task<ActionResult<CustomerResponse>> Create(CreateCustomerRequest request, CancellationToken token) =>

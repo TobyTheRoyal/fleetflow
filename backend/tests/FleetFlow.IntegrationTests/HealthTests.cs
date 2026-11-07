@@ -85,7 +85,7 @@ public sealed class HealthTests(PostgreSqlFixture database) : IClassFixture<Post
     public async Task Production_does_not_expose_openapi()
     {
         await using var factory = new FleetFlowApiFactory(database.ConnectionString, "Production");
-        using var client = factory.CreateClient();
+        using var client = await TestAuthentication.ClientAsync(factory);
 
         using var response = await client.GetAsync("/openapi/v1.json", CancellationToken);
 
@@ -96,7 +96,7 @@ public sealed class HealthTests(PostgreSqlFixture database) : IClassFixture<Post
     public async Task Unknown_routes_return_problem_details()
     {
         await using var factory = new FleetFlowApiFactory(database.ConnectionString);
-        using var client = factory.CreateClient();
+        using var client = await TestAuthentication.ClientAsync(factory);
 
         using var response = await client.GetAsync("/does-not-exist", CancellationToken);
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken));

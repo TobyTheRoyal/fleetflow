@@ -6,10 +6,12 @@ FleetFlow helps a dispatcher create transport orders, assign eligible drivers an
 
 The emphasis is on engineering behind a usable product: backend-enforced business rules, relational constraints, transactional history, concurrent reservation handling and a real PostgreSQL-backed operations interface.
 
-> **Local development only.** Authentication and authorization are not implemented. The demo actor is a label, not a verified identity. Do not expose the writable API publicly.
+> **Local development only.** ASP.NET Core Identity cookie authentication and Admin/Dispatcher/Viewer roles are implemented. Deployment hardening is still incomplete; do not expose this local application publicly.
 
 ## What you can do
 
+- Sign in with a managed account, use role-appropriate operations and change your password.
+- Administrators can provision users and revoke access immediately.
 - Monitor actual shipment counts, overdue deliveries, upcoming deadlines and recent orders.
 - Search and filter shipments in PostgreSQL, with URL-synchronized filters and pagination.
 - Create transport orders with full addresses, cargo details, decimal weights and schedules.
@@ -136,7 +138,7 @@ nvm use
 sh scripts/dev.sh
 ```
 
-Open **[FleetFlow](http://127.0.0.1:5173)**. A host .NET SDK is not needed just to run the Docker-backed application.
+Open **[FleetFlow](http://127.0.0.1:5173)**. A host .NET SDK is not needed just to run the Docker-backed application. Sign in with `admin@fleetflow.example`, `dispatcher@fleetflow.example` or `viewer@fleetflow.example`; your generated initial passwords are in ignored `.env.demo`. Never publish this file. [Authentication and demo-account guide](docs/authentication.md).
 
 Prefer individual steps?
 
@@ -144,6 +146,7 @@ Prefer individual steps?
 sh scripts/setup-env.sh
 docker compose -p fleetflow up --build -d --wait
 docker compose -p fleetflow run --rm --no-deps api --migrate --seed
+sh scripts/demo-users.sh
 npm ci --prefix frontend
 npm run dev --prefix frontend
 ```
@@ -196,7 +199,7 @@ Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback po
 
 Coverage reports are generated under `artifacts/backend/` and `frontend/coverage/`. Inspect coverage to find missing behaviors, not to chase an arbitrary percentage. `python3 scripts/coverage-summary.py` prints per-suite/per-assembly results. Generated API contracts, EF migration/snapshot files and the frontend bootstrap are excluded from line metrics; migration execution is still tested.
 
-[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md)
+[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md) · [M5a authentication verification](docs/m5a-verification.md)
 
 ## Continuous integration
 
@@ -215,19 +218,19 @@ The workflow uses read-only repository permissions, disabled checkout credential
 Open the Development OpenAPI document or [API guide](docs/api/v1.md) for request DTOs, responses, validation, filters, paging and `version` preconditions.
 
 ```sh
-curl --fail http://127.0.0.1:5080/api/v1/dashboard/summary
-curl --fail 'http://127.0.0.1:5080/api/v1/shipments?status=Draft&page=1&pageSize=20'
+curl --fail http://127.0.0.1:5080/health/ready
+# Logistics calls require an Identity session cookie; writes also need X-CSRF-TOKEN.
 ```
 
 A practical interview demo: create a Graz–Vienna order, assign an eligible driver/vehicle, plan it, start transit and mark it delivered. Inspect the real event timeline and dashboard changes. Then demonstrate a stale version or overlapping reservation conflict and the corresponding automated test.
 
 ## Security and limits
 
-This is production-oriented engineering **without production authorization or deployment readiness**. Anyone who can reach the API can currently mutate data. Local binding, Host filtering and CORS restrictions reduce exposure; they do not authenticate users.
+Identity sessions, CSRF and server-enforced role policies secure logistics endpoints. This remains a **local portfolio application without production deployment readiness**. Local HTTP cookies and unencrypted-at-rest development Data Protection keys must not be reused as a public deployment configuration.
 
 The API returns safe ProblemDetails, avoids unfiltered unexpected-exception logs, rejects unknown request fields and adds no-store/nosniff headers. The API container runs as non-root with a read-only root filesystem, temporary scratch space, dropped capabilities and no privilege escalation. The local database role remains privileged for development migration/seed; it is not a production service account.
 
-Before public deployment: implement established authentication/authorization, verified actors, HTTPS/proxy and host policies, appropriate CSRF/session protections, request/rate limits, least-privilege database roles, secrets management, operational logging/retention, backups/recovery and a deployment security review. Audit results are time-specific, not proof of absence of vulnerabilities. [Security review and threat model](docs/security.md)
+Before public deployment: verify HTTPS/proxy/host policies, encrypt and restrict the key ring, define MFA/account recovery and administrator bootstrap, add deployment-appropriate abuse controls, least-privilege database roles, managed secrets, operational logging/retention, backups/recovery and a deployment security review. Audit results are time-specific, not proof of absence of vulnerabilities. [Security review and threat model](docs/security.md) · [Identity architecture and limitations](docs/authentication.md)
 
 Other boundaries: English UI and fixed Vienna display timezone; offset pagination can shift under concurrent writes; master records use existing last-write-wins update semantics; license category is informational; no multi-shipment trips, GPS, pricing, invoicing or export APIs. Ambiguous write failures require checking the record/list before retrying; create requests do not yet have idempotency keys.
 
@@ -235,8 +238,9 @@ Other boundaries: English UI and fixed Vienna display timezone; offset paginatio
 
 - **M0–M3:** foundation, domain/persistence, REST API and operations UI.
 - **M4:** quality review, CI configuration, security/accessibility checks and portfolio documentation.
-- **M4.1:** browser toolchain stabilization, repeated accessibility/interaction checks and CI diagnostics; hosted execution remains to be confirmed.
-- **M5, only after approval:** established authentication/authorization and scoped live updates.
+- **M4.1:** browser toolchain stabilization, repeated accessibility/interaction checks and CI diagnostics; five hosted baseline jobs reported green by the project owner.
+- **M5a:** Identity authentication, cookie/CSRF sessions, role policies, managed accounts and verified audit actors.
+- **Later, only after approval:** scoped live updates and further deployment hardening.
 - **Later optional work:** useful, explicitly labeled AI assistance or a driver-oriented mobile exploration, after the secured core is complete.
 
 Private planning/instruction documents and actual credentials are excluded from Git and Docker build contexts. Nothing is publicly deployed by this repository.

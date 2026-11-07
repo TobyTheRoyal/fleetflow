@@ -1,3 +1,4 @@
+import { request } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import {
   mkdtempSync,
@@ -37,6 +38,13 @@ export function compose(...args: string[]) {
 export default async function setup() {
   const dir = mkdtempSync(join(tmpdir(), 'fleetflow-e2e-'))
   process.env.FLEETFLOW_E2E_ENV = join(dir, '.env')
+  process.env.FLEETFLOW_E2E_AUTH_DIR = dir
+  const demoPasswords = Object.fromEntries(
+    ['Admin', 'Dispatcher', 'Viewer'].map((role) => [
+      role,
+      'Ff!7' + randomBytes(24).toString('hex'),
+    ]),
+  )
   const password = randomBytes(24).toString('hex')
   writeFileSync(
     process.env.FLEETFLOW_E2E_ENV,
@@ -45,9 +53,15 @@ POSTGRES_USER=fleetflow
 POSTGRES_PASSWORD=${password}
 POSTGRES_PORT=5434
 API_PORT=5180
+DEMO_ADMIN_PASSWORD=${demoPasswords.Admin}
+DEMO_DISPATCHER_PASSWORD=${demoPasswords.Dispatcher}
+DEMO_VIEWER_PASSWORD=${demoPasswords.Viewer}
 `,
     { mode: 0o600 },
   )
+  writeFileSync(join(dir, 'credentials.json'), JSON.stringify(demoPasswords), {
+    mode: 0o600,
+  })
   let ownsStack = false
   let stage = 'checking for an existing test project'
   const diagnostics = () => {
@@ -61,6 +75,7 @@ API_PORT=5180
       ]
         .join('\n')
         .replaceAll(password, '[REDACTED]')
+        .replace(/Ff!7[a-f0-9]{48}/g, '[REDACTED]')
         .replace(/Password=[^;\s]+/gi, 'Password=[REDACTED]')
       writeFileSync('test-results/stack.log', logs, { mode: 0o600 })
     } catch {
@@ -75,7 +90,15 @@ API_PORT=5180
     console.log('Starting isolated PostgreSQL/API E2E stack (5180 / 5434)…')
     compose('up', '--build', '-d', '--wait', '--wait-timeout', '120')
     stage = 'applying migration and development seed'
-    compose('run', '--rm', '--no-deps', 'api', '--migrate', '--seed')
+    compose(
+      'run',
+      '--rm',
+      '--no-deps',
+      'api',
+      '--migrate',
+      '--seed',
+      '--seed-users',
+    )
     stage = 'waiting for database-backed API readiness'
     const deadline = Date.now() + 60000
     while (true) {
@@ -104,6 +127,28 @@ API_PORT=5180
           OPENAPI_URL: 'http://127.0.0.1:5180/openapi/v1.json',
         },
       })
+    }
+    stage = 'provisioning authenticated test contexts'
+    for (const role of ['Admin', 'Dispatcher', 'Viewer']) {
+      const client = await request.newContext({
+        baseURL: 'http://127.0.0.1:5180',
+      })
+      try {
+        const csrf = (await (await client.get('/api/v1/auth/csrf')).json()) as {
+          token: string
+        }
+        const login = await client.post('/api/v1/auth/login', {
+          data: {
+            email: `${role.toLowerCase()}@fleetflow.example`,
+            password: demoPasswords[role],
+          },
+          headers: { 'X-CSRF-TOKEN': csrf.token },
+        })
+        if (!login.ok()) throw new Error('Test login failed.')
+        await client.storageState({ path: join(dir, role + '.json') })
+      } finally {
+        await client.dispose()
+      }
     }
     stage = 'running browser tests'
     return async () => {

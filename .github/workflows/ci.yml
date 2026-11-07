@@ -118,7 +118,12 @@ jobs:
         env:
           CHECK_API_CONTRACT: '1'
           DEBUG: pw:browser
-      - if: always()
+      - name: Sanitize authenticated browser artifacts
+        id: sanitize
+        if: always()
+        working-directory: .
+        run: python3 scripts/redact-browser-artifacts.py
+      - if: always() && steps.sanitize.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: e2e-${{ matrix.browser }}

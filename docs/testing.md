@@ -96,3 +96,11 @@ git diff --check
 ```
 
 The public-file check rejects private instruction/configuration filenames and occurrences of the current local password in public Git candidates. It is a focused privacy safeguard, not a complete secret-scanning engine. Historical verification reports remain milestone-specific; use [M4.1 results](m41-verification.md) for the current browser/CI stabilization checks.
+
+## M5a authenticated tests
+
+HTTP tests provision random accounts with UserManager, obtain real antiforgery tokens and sign in through the actual Identity login endpoint. No test authentication handler is installed. E2E uses an isolated seed plus three generated role accounts; cookie states and credentials live in a private temporary directory outside Git/artifact paths. Each fixture checks its cached session and performs a real login again when expired. This keeps the server's 30-minute lifetime intact during slow or interrupted runs.
+
+New cases cover login/logout, role denial, account activation, lockout/rate limits, password change, cookie flags, CSRF and same-account draft recovery. Actual timed expiry is tested with TimeProvider through PostgreSQL/HTTP; the browser simulates losing its session cookie and verifies recovery. Existing lifecycle/conflict tests authenticate explicitly.
+
+Before sharing local browser diagnostics run `python3 scripts/redact-browser-artifacts.py` from the repository root. CI runs it before artifact upload and requires successful sanitization. It sanitizes synthetic password/cookie/token values in trace archives, embedded HTML report archives and logs; it is not a general guarantee for real customer data or future arbitrary credential formats. The three Python helper tests include a redaction regression. Current results are in [M5a verification](m5a-verification.md).

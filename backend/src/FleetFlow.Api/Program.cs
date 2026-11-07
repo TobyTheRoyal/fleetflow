@@ -1,12 +1,15 @@
 using System.Text.Json.Serialization;
 using FleetFlow.Api.Errors;
 using FleetFlow.Api.OpenApi;
+using FleetFlow.Api.Security;
 using FleetFlow.Infrastructure;
+using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
 
 var migrate = args.Contains("--migrate");
+var seedUsers = args.Contains("--seed-users");
 var seed = args.Contains("--seed");
-var builder = WebApplication.CreateBuilder(args.Where(arg => arg is not ("--migrate" or "--seed")).ToArray());
+var builder = WebApplication.CreateBuilder(args.Where(arg => arg is not ("--migrate" or "--seed" or "--seed-users")).ToArray());
 
 // First-party OpenAPI reads HTTP JSON options independently of MVC's JSON options.
 // Keep enum and unknown-property schemas consistent with the controller contract.
@@ -17,7 +20,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
 });
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.Filters.AddService<CsrfFilter>())
     .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = RequestValidation.Invalid)
     .AddJsonOptions(options =>
     {
@@ -33,7 +36,7 @@ builder.Services.AddOpenApi(options =>
     {
         document.Info.Title = "FleetFlow REST API";
         document.Info.Version = "v1";
-        document.Info.Description = "Local development API. JSON uses camelCase, named enums and UTC ISO 8601 timestamps. Shipment mutations require the current version; 409/stale_version means reload. Page responses include items/page/pageSize/totalCount/totalPages. Actor is server-controlled. No authentication: do not expose writable endpoints publicly.";
+        document.Info.Description = "Local development API. JSON uses camelCase, named enums and UTC ISO 8601 timestamps. Shipment mutations require the current version; 409/stale_version means reload. Page responses include items/page/pageSize/totalCount/totalPages. Actor is server-controlled. Cookie authentication; unsafe requests also require X-CSRF-TOKEN from /api/v1/auth/csrf. Roles: Admin, Dispatcher, Viewer. Local development only.";
         return Task.CompletedTask;
     });
 });
@@ -48,11 +51,18 @@ builder.Services.AddProblemDetails(options =>
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+builder.Services.AddSessionSecurity(builder.Environment.IsDevelopment());
+builder.Services.AddScoped<DevelopmentUsers>();
 var app = builder.Build();
 
-if (migrate || seed)
+if (migrate || seed || seedUsers)
 {
     await DevelopmentDatabase.InitializeAsync(app.Services, app.Environment.EnvironmentName, migrate, seed);
+    if (seedUsers)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<DevelopmentUsers>().SeedAsync(app.Environment.EnvironmentName, default);
+    }
     return;
 }
 
@@ -71,9 +81,14 @@ app.Use(async (context, next) =>
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+app.UseRouting();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 
 app.MapControllers();

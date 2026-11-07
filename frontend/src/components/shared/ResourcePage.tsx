@@ -1,3 +1,4 @@
+import { useCanManage } from '@/features/auth/context'
 import { useState, useRef, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Plus, Pencil } from 'lucide-react'
@@ -33,6 +34,8 @@ export function ResourcePage<T extends { id: string }>({
   ) => ReactNode
   editable?: boolean
 }) {
+  const canManage = useCanManage()
+  editable = editable && canManage
   const { page, pageSize, change } = usePaging()
   const query = useQuery({
     queryKey: [resource, 'list', page, pageSize],
@@ -54,15 +57,17 @@ export function ResourcePage<T extends { id: string }>({
         title={title}
         description={description}
         action={
-          <Button
-            onClick={(event) => {
-              trigger.current = event.currentTarget
-              setEditor({})
-            }}
-          >
-            <Plus size={17} />
-            Add {singular}
-          </Button>
+          canManage && (
+            <Button
+              onClick={(event) => {
+                trigger.current = event.currentTarget
+                setEditor({})
+              }}
+            >
+              <Plus size={17} />
+              Add {singular}
+            </Button>
+          )
         }
       />
       {query.isError && (
@@ -153,7 +158,7 @@ export function ResourcePage<T extends { id: string }>({
                     <Button onClick={() => change({ page: 1 })}>
                       Go to first page
                     </Button>
-                  ) : (
+                  ) : canManage ? (
                     <Button
                       onClick={(event) => {
                         trigger.current = event.currentTarget
@@ -162,7 +167,7 @@ export function ResourcePage<T extends { id: string }>({
                     >
                       Add {singular}
                     </Button>
-                  )}
+                  ) : null}
                 </>
               }
             />

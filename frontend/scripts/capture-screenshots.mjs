@@ -49,6 +49,10 @@ try {
   }
   browser = await chromium.launch()
   const context = await browser.newContext({
+    storageState: resolve(
+      process.env.FLEETFLOW_E2E_AUTH_DIR,
+      'Dispatcher.json',
+    ),
     viewport: { width: 1440, height: 1040 },
     locale: 'en-GB',
     timezoneId: 'Europe/Vienna',

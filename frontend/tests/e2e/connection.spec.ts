@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './infra/test'
 test('the browser connects through Vite to the real API and PostgreSQL', async ({
   page,
 }) => {

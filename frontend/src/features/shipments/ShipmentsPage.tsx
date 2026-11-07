@@ -1,3 +1,4 @@
+import { useCanManage } from '@/features/auth/context'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Filter, Plus, Search, X, RefreshCw } from 'lucide-react'
@@ -12,6 +13,7 @@ import { request, queryString } from '@/lib/api'
 import { pageSchema, shipmentSchema, statuses } from '@/types/api'
 import { statusLabel } from '@/lib/status'
 export function ShipmentsPage() {
+  const canManage = useCanManage()
   const { params, page, pageSize, change } = usePaging()
   const status = statuses.find((s) => s === params.get('status'))
   const customerId = params.get('customerId') ?? undefined
@@ -40,12 +42,14 @@ export function ShipmentsPage() {
         title="Shipments"
         description="Plan, dispatch and follow every shipment from pickup to delivery."
         action={
-          <Button asChild>
-            <Link to="/shipments/new">
-              <Plus size={17} />
-              New shipment
-            </Link>
-          </Button>
+          canManage && (
+            <Button asChild>
+              <Link to="/shipments/new">
+                <Plus size={17} />
+                New shipment
+              </Link>
+            </Button>
+          )
         }
       />
       <section className="panel">
@@ -235,11 +239,11 @@ export function ShipmentsPage() {
                         >
                           Clear filters
                         </Button>
-                      ) : (
+                      ) : canManage ? (
                         <Button asChild>
                           <Link to="/shipments/new">Create shipment</Link>
                         </Button>
-                      )
+                      ) : null
                     }
                   />
                 )}

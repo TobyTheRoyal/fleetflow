@@ -1,3 +1,6 @@
+import { ProtectedRoute } from '@/features/auth/session'
+import { LoginPage } from '@/features/auth/LoginForm'
+import { UsersPage } from '@/features/auth/UsersPage'
 import { lazy } from 'react'
 import { Route, Routes, Link } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -46,29 +49,39 @@ const VehiclesPage = lazy(() =>
 export function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<DashboardPage />} />
-        <Route path="shipments" element={<ShipmentsPage />} />
-        <Route path="shipments/new" element={<ShipmentForm />} />
-        <Route path="shipments/:id" element={<ShipmentDetailPage />} />
-        <Route path="shipments/:id/edit" element={<ShipmentEditPage />} />
-        <Route path="customers" element={<CustomersPage />} />
-        <Route path="drivers" element={<DriversPage />} />
-        <Route path="vehicles" element={<VehiclesPage />} />
-        <Route
-          path="*"
-          element={
-            <EmptyState
-              title="Page not found"
-              description="This workspace page does not exist. Return to your operations overview."
-              action={
-                <Button asChild>
-                  <Link to="/">Go to overview</Link>
-                </Button>
-              }
-            />
-          }
-        />
+      <Route path="login" element={<LoginPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="shipments" element={<ShipmentsPage />} />
+          <Route element={<ProtectedRoute write />}>
+            <Route path="shipments/new" element={<ShipmentForm />} />
+          </Route>
+          <Route path="shipments/:id" element={<ShipmentDetailPage />} />
+          <Route element={<ProtectedRoute write />}>
+            <Route path="shipments/:id/edit" element={<ShipmentEditPage />} />
+          </Route>
+          <Route element={<ProtectedRoute admin />}>
+            <Route path="users" element={<UsersPage />} />
+          </Route>
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="drivers" element={<DriversPage />} />
+          <Route path="vehicles" element={<VehiclesPage />} />
+          <Route
+            path="*"
+            element={
+              <EmptyState
+                title="Page not found"
+                description="This workspace page does not exist. Return to your operations overview."
+                action={
+                  <Button asChild>
+                    <Link to="/">Go to overview</Link>
+                  </Button>
+                }
+              />
+            }
+          />
+        </Route>
       </Route>
     </Routes>
   )

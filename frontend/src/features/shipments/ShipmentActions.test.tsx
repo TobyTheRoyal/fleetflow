@@ -89,7 +89,12 @@ it('posts a confirmed transition and optional reason using the expected version'
   )
   await userEvent.click(screen.getByRole('button', { name: 'Plan shipment' }))
   expect(close).toHaveBeenCalledOnce()
-  expect(JSON.parse(fetch.mock.calls[0]![1]!.body as string)).toEqual({
+  expect(
+    JSON.parse(
+      fetch.mock.calls.find(([, options]) => options.method === 'POST')![1]!
+        .body as string,
+    ),
+  ).toEqual({
     version: 2,
     status: 'Planned',
     reason: 'Ready to dispatch',
@@ -126,7 +131,9 @@ it('disables stale status retries and requires deliberate reload', async () => {
     'Shipment changed elsewhere',
   )
   expect(screen.getByRole('button', { name: 'Plan shipment' })).toBeDisabled()
-  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(
+    fetch.mock.calls.filter(([, options]) => options.method === 'POST'),
+  ).toHaveLength(1)
   await userEvent.click(
     screen.getByRole('button', { name: 'Discard edits and reload latest' }),
   )

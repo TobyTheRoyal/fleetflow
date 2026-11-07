@@ -38,9 +38,9 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
         await create.ExecuteNonQueryAsync(Token);
         connectionString = new NpgsqlConnectionStringBuilder(server.ConnectionString) { Database = databaseName }.ConnectionString;
         factory = NewFactory();
-        client = factory.CreateClient();
         await using var scope = factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<FleetFlowDbContext>().Database.MigrateAsync(Token);
+        client = await TestAuthentication.ClientAsync(factory);
     }
 
     public async ValueTask DisposeAsync()
@@ -89,7 +89,7 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
         var history = await Get<PageResponse<ShipmentEventResponse>>($"/api/v1/shipments/{shipment.Id}/events");
         Assert.Equal(5, history.TotalCount);
         Assert.Equal(new[] { ShipmentEventType.Created, ShipmentEventType.AssignmentChanged, ShipmentEventType.StatusChanged, ShipmentEventType.StatusChanged, ShipmentEventType.StatusChanged }, history.Items.Select(x => x.EventType));
-        Assert.All(history.Items, e => Assert.Equal("local-dispatcher", e.Actor));
+        Assert.All(history.Items, e => Assert.True(Guid.TryParse(e.Actor, out _)));
         var summary = await Get<DashboardResponse>("/api/v1/dashboard/summary");
         Assert.Equal(2, summary.TotalNonCancelledShipments);
         Assert.Equal(1, summary.DeliveredShipments);
@@ -199,7 +199,7 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
         Assert.Empty((await Get<PageResponse<ShipmentResponse>>("/api/v1/shipments?page=50")).Items);
         sql.Clear();
         await Get<PageResponse<ShipmentResponse>>("/api/v1/shipments?pageSize=2");
-        var commands = sql.Commands.ToArray();
+        var commands = sql.Commands.Where(query => !query.Contains("AspNetUsers", StringComparison.Ordinal)).ToArray();
         Assert.Equal(2, commands.Length);
         Assert.Contains(commands, query => query.Contains("LIMIT", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(commands, query => query.Contains("count(", StringComparison.OrdinalIgnoreCase));
@@ -212,7 +212,7 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
             await scope.ServiceProvider.GetRequiredService<DevelopmentSeeder>().SeedAsync("Development", Token);
         sql.Clear();
         var summary = await Get<DashboardResponse>("/api/v1/dashboard/summary");
-        Assert.Equal(2, sql.Commands.Count);
+        Assert.Equal(2, sql.Commands.Count(query => !query.Contains("AspNetUsers", StringComparison.Ordinal)));
         Assert.Equal(clock.Now, summary.AsOfUtc);
         Assert.Equal(30, summary.TotalNonCancelledShipments);
         Assert.Equal(6, summary.DraftShipments); Assert.Equal(6, summary.PlannedShipments);
@@ -224,6 +224,7 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
         Assert.Equal(9, (await Get<PageResponse<ShipmentResponse>>("/api/v1/shipments?deadline=Overdue")).TotalCount);
         Assert.Equal(9, (await Get<PageResponse<ShipmentResponse>>("/api/v1/shipments?deadline=DueSoon")).TotalCount);
         clock.Now = clock.Now.AddDays(2);
+        client.Dispose(); client = await TestAuthentication.ClientAsync(factory);
         summary = await Get<DashboardResponse>("/api/v1/dashboard/summary");
         Assert.Equal(0, summary.DueSoonShipments); Assert.Equal(18, summary.OverdueShipments);
     }
@@ -428,7 +429,7 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
     {
         var r = await Resources(); var shipment = await CreateAssigned(r);
         client.Dispose(); await factory.DisposeAsync();
-        factory = NewFactory(); client = factory.CreateClient();
+        factory = NewFactory(); client = await TestAuthentication.ClientAsync(factory);
         var saved = await Get<ShipmentResponse>($"/api/v1/shipments/{shipment.Id}");
         Assert.Equal(shipment.ShipmentNumber, saved.ShipmentNumber);
         Assert.Equal(2, saved.Version);

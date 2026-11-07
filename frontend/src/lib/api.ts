@@ -31,6 +31,36 @@ export const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(
   /\/$/,
   '',
 )
+let csrf: Promise<string> | undefined
+export function resetCsrf() {
+  csrf = undefined
+}
+async function csrfToken() {
+  csrf ??= fetch(apiBase + '/api/v1/auth/csrf', {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+    .then(async (response) => {
+      if (!response.ok)
+        throw new ApiError(
+          'Could not verify this session. Try again.',
+          response.status,
+          'csrf_unavailable',
+        )
+      return z.object({ token: z.string() }).parse(await response.json()).token
+    })
+    .catch((error) => {
+      csrf = undefined
+      throw error instanceof ApiError
+        ? error
+        : new ApiError(
+            'Could not verify this session. Check the API connection and try again.',
+            0,
+            'csrf_unavailable',
+          )
+    })
+  return csrf
+}
 export async function request<T>(
   path: string,
   schema: z.ZodType<T>,
@@ -40,13 +70,16 @@ export async function request<T>(
     body?: unknown
   } = {},
 ): Promise<T> {
+  const token = options.method ? await csrfToken() : undefined
   let response: Response
   try {
     response = await fetch(apiBase + path, {
       signal: options.signal,
+      credentials: 'same-origin',
       method: options.method ?? 'GET',
       headers: {
         Accept: 'application/json',
+        ...(token ? { 'X-CSRF-TOKEN': token } : {}),
         ...(options.body === undefined
           ? {}
           : { 'Content-Type': 'application/json' }),
@@ -72,8 +105,20 @@ export async function request<T>(
     return null
   })
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      ![
+        '/api/v1/auth/login',
+        '/api/v1/auth/logout',
+        '/api/v1/auth/csrf',
+      ].includes(path)
+    ) {
+      resetCsrf()
+      window.dispatchEvent(new Event('fleetflow:unauthorized'))
+    }
     const parsed = problemSchema.safeParse(body)
     const problem = parsed.success ? parsed.data : undefined
+    if (problem?.code === 'csrf_invalid') resetCsrf()
     throw new ApiError(
       problem?.detail ??
         (response.status === 503 || response.status === 502

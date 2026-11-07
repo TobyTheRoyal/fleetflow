@@ -1910,3 +1910,39 @@ h1 {
     margin-left: 15px;
   }
 }
+
+.login-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f5f7fb;
+}
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 36px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px #101d320a;
+}
+
+.demo-user strong {
+  max-width: 150px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .topbar-actions {
+    gap: 8px;
+  }
+  .global-search input {
+    width: 80px;
+  }
+  .breadcrumbs {
+    display: none;
+  }
+}

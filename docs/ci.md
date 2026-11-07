@@ -42,3 +42,7 @@ See [the stabilization report](m41-verification.md) for the exact local results 
 4. Confirm the toolchain step resolves Playwright, its runner and core to 1.64.1; Node comes from `.nvmrc`, .NET from `global.json`. Each browser job installs its own bundled engine and Linux libraries, then initializes its own Compose PostgreSQL/API/database/volume.
 5. Inspect JUnit counts and the HTML reports, generated-contract check, stack/browser logs, screenshots and traces for any failures. Confirm artifacts contain only synthetic test data and no credentials. Record the run URL and commit in a follow-up verification entry.
 6. Only after a fully green hosted run, configure required checks/branch protection using appropriate repository permissions. This implementation does not change repository settings.
+
+## M5a authenticated verification
+
+The M0–M4.1 five-job hosted baseline was reported green by the project owner. The M5a changes require a new hosted run after review/commit/push; none was triggered by the implementation agent. The existing five-job matrix remains. E2E initializes Identity accounts, uses real cookie/CSRF authentication and obtains session state in private temporary files. Before upload, an always-run sanitization step processes traces, embedded report archives and run logs. Upload occurs only if this step succeeds. Review this synthetic-test policy again before real credentials/customer data are introduced. See [M5a results](m5a-verification.md).

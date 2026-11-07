@@ -66,6 +66,8 @@ it('does not repeat writes and invalidates detail/history/lists/dashboard after 
       }),
     ).rejects.toMatchObject({ code: 'stale_version' })
   })
-  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(
+    fetch.mock.calls.filter(([, options]) => options.method === 'POST'),
+  ).toHaveLength(2)
   client.clear()
 })

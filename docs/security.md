@@ -1,12 +1,12 @@
-# Security review — unauthenticated local portfolio application
+# Security review — local portfolio application
 
-Reviewed for M4 on 2026-11-07. This is an engineering review with automated checks, not a penetration test or production security certification. FleetFlow must stay local until authentication/authorization and deployment controls are implemented and verified.
+Updated for M5a on 2026-11-07. [Identity/session design](authentication.md) documents the current controls. This is an engineering review with automated checks, not a penetration test or production security certification. FleetFlow must stay local until authentication/authorization and deployment controls are implemented and verified.
 
 ## Trust boundary
 
 Assets include customer contacts, addresses, cargo/schedules, driver/vehicle identifiers and event history. Browser input is untrusted; DTO binding/domain validation/database constraints are independent defenses. The React client is not a security boundary. Current demo data is entirely fictional.
 
-**Anyone who reaches the API can currently read or mutate data.** There are no users, sessions, authorization roles or verified event actors. `local-dispatcher` is a server-owned demo label. Choosing Production hides OpenAPI and disables seed tooling, but does not turn the writable API into an authenticated service.
+Logistics reads require Admin/Dispatcher/Viewer; writes require Admin/Dispatcher. User administration requires Admin. Identity security stamps and active flags are checked on every authenticated request. Newly written shipment events use the verified user ID; historical demo events are preserved. Production cookies require HTTPS, and Development-only OpenAPI/provisioning remain separate from authorization.
 
 ## Reviewed controls and findings
 
@@ -38,7 +38,7 @@ The privacy helper checks public Git candidates for private instruction/configur
 
 ## Required before public deployment
 
-1. Established authentication and server-side authorization for every operation; verified audit actors and permission tests.
+1. Deployment-specific verification of the implemented authentication, authorization, CSRF, verified actors and permission tests, plus MFA and account recovery where appropriate.
 2. Defined identity/session model, secure cookies/token handling, expiration/revocation and applicable CSRF protections.
 3. HTTPS, trusted reverse-proxy/forwarded-header policy, explicit allowed origins/hosts and a fresh public-exposure review.
 4. Separate least-privilege application and migration database roles; network restrictions, managed secrets and credential rotation.
@@ -48,4 +48,8 @@ The privacy helper checks public Git candidates for private instruction/configur
 8. Container/base-image vulnerability scans, reviewed runtime patching and deployment-specific hardening.
 9. Security and accessibility reviews with real deployment assumptions, plus protected CI checks and secret scanning.
 
-No complete authentication, SignalR, AI, production deployment or mobile application is added in M4. Shipment-only Version semantics and absence of create-request idempotency keys remain documented design limits, not hidden security guarantees.
+M5a adds Identity authentication, roles, CSRF, lockout/rate limits, password change and immediate account/session revocation. SignalR, AI, public deployment and mobile applications remain absent. Shipment-only Version semantics and absence of create-request idempotency keys remain documented design limits, not hidden security guarantees.
+
+## M5a diagnostic artifacts
+
+Authenticated browser traces can contain passwords and cookies. CI now sanitizes synthetic trace archives, embedded HTML report archives and logs before upload, and skips upload if sanitization fails. Generated fixture credentials and cookie states remain outside artifact paths and are deleted at teardown. This is scoped synthetic-test redaction, not a universal DLP guarantee. Data Protection keys reside unencrypted in the development database; key encryption and least-privilege access are deployment blockers.

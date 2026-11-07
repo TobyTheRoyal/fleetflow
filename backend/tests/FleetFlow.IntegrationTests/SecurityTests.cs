@@ -16,8 +16,8 @@ public sealed class SecurityTests(PostgreSqlFixture database) : IClassFixture<Po
 
     [Theory]
     [InlineData("/health", 200)]
-    [InlineData("/missing", 404)]
-    [InlineData("/api/v1/shipments/not-a-guid", 400)]
+    [InlineData("/missing", 401)]
+    [InlineData("/api/v1/shipments/not-a-guid", 401)]
     public async Task Operational_and_error_responses_cannot_be_cached_or_content_sniffed(string path, int status)
     {
         await using var factory = new FleetFlowApiFactory(database.ConnectionString);
@@ -60,8 +60,9 @@ public sealed class SecurityTests(PostgreSqlFixture database) : IClassFixture<Po
     {
         await using var factory = new FleetFlowApiFactory(database.ConnectionString);
         using var client = factory.CreateClient();
+        using var authenticated = await TestAuthentication.ClientAsync(factory);
         using var content = new StringContent("{\"name\":\"Untrusted input\"}", Encoding.UTF8, contentType);
-        using var response = await client.PostAsync("/api/v1/customers", content, Token);
+        using var response = await authenticated.PostAsync("/api/v1/customers", content, Token);
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
     }
 

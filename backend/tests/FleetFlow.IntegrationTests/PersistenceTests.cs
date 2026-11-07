@@ -58,7 +58,7 @@ public sealed class PersistenceTests(PostgreSqlFixture postgres) : IClassFixture
     {
         await WithDb(async db =>
         {
-            Assert.Single(await db.Database.GetAppliedMigrationsAsync(Token));
+            Assert.Equal(2, (await db.Database.GetAppliedMigrationsAsync(Token)).Count());
             Assert.Empty(await db.Database.GetPendingMigrationsAsync(Token));
             Assert.False(db.Database.HasPendingModelChanges());
             await db.Database.MigrateAsync(Token);
@@ -66,7 +66,7 @@ public sealed class PersistenceTests(PostgreSqlFixture postgres) : IClassFixture
             await db.GetService<IMigrator>().MigrateAsync("0", Token);
             Assert.Empty(await db.Database.GetAppliedMigrationsAsync(Token));
             await db.Database.MigrateAsync(Token);
-            Assert.Single(await db.Database.GetAppliedMigrationsAsync(Token));
+            Assert.Equal(2, (await db.Database.GetAppliedMigrationsAsync(Token)).Count());
             return 0;
         });
     }

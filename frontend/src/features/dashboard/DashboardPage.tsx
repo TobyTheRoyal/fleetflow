@@ -1,3 +1,4 @@
+import { useCanManage } from '@/features/auth/context'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -19,6 +20,7 @@ import { dashboardSchema, shipmentSchema, pageSchema } from '@/types/api'
 import { formatDate, number } from '@/lib/dates'
 import { statusLabel } from '@/lib/status'
 export function DashboardPage() {
+  const canManage = useCanManage()
   const query = useQuery({
     queryKey: ['dashboard'],
     queryFn: ({ signal }) =>
@@ -85,12 +87,14 @@ export function DashboardPage() {
         title="Operations overview"
         description="Keep your shipments moving and your delivery priorities in focus."
         action={
-          <Button asChild>
-            <Link to="/shipments/new">
-              <Plus size={17} />
-              New shipment
-            </Link>
-          </Button>
+          canManage && (
+            <Button asChild>
+              <Link to="/shipments/new">
+                <Plus size={17} />
+                New shipment
+              </Link>
+            </Button>
+          )
         }
       />
       {query.isError && (
@@ -246,9 +250,11 @@ export function DashboardPage() {
                   title="Your operation starts here"
                   description="Create your first shipment to see its progress and delivery priorities."
                   action={
-                    <Button asChild>
-                      <Link to="/shipments/new">Create shipment</Link>
-                    </Button>
+                    canManage && (
+                      <Button asChild>
+                        <Link to="/shipments/new">Create shipment</Link>
+                      </Button>
+                    )
                   }
                 />
               )}

@@ -1,6 +1,6 @@
 # Local setup and recovery
 
-FleetFlow runs as a documented split: PostgreSQL and ASP.NET Core in Docker, Vite on the host. All published ports bind to 127.0.0.1. Authentication is absent; do not use a public tunnel, LAN bind or public reverse proxy.
+FleetFlow runs as a documented split: PostgreSQL and ASP.NET Core in Docker, Vite on the host. All published ports bind to 127.0.0.1. Identity authentication is enabled; deployment hardening is incomplete. Do not use a public tunnel, LAN bind or public reverse proxy.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ FleetFlow runs as a documented split: PostgreSQL and ASP.NET Core in Docker, Vit
 - .NET SDK 10.0.403 for host C# development/tests, pinned by `global.json`.
 - Package/image/browser installation requires network access and trusted certificates. Do not bypass TLS verification to fix a proxy/certificate problem.
 
-macOS Apple Silicon is locally verified. GitHub Actions targets Ubuntu 24.04; hosted execution remains unverified until run. For Windows use WSL2 and enable Docker integration; native PowerShell equivalents are not currently supplied.
+macOS Apple Silicon is locally verified. GitHub Actions targets Ubuntu 24.04; the M4.1 hosted baseline was reported green; the M5a changes still require a new hosted run. For Windows use WSL2 and enable Docker integration; native PowerShell equivalents are not currently supplied.
 
 ## First run
 
@@ -20,13 +20,14 @@ From the repository root, `sh scripts/dev.sh` performs the following steps:
 sh scripts/setup-env.sh
 docker compose -p fleetflow up --build -d --wait
 docker compose -p fleetflow run --rm --no-deps api --migrate --seed
+sh scripts/demo-users.sh
 npm ci --prefix frontend
 npm run dev --prefix frontend
 ```
 
 The environment helper creates `.env` with mode restricted by umask 077 and a random password. It preserves an existing file. `.env.example` documents the variables without containing an actual credential. Docker Compose reads this file; browser assets receive no database credentials.
 
-Open http://127.0.0.1:5173. Liveness is `/health`; database connectivity is `/health/ready`. The top-bar health menu retains an explicit retry. A normal API start never migrates/seeds automatically: initialization is a separate Development-only CLI operation that exits afterward.
+Open http://127.0.0.1:5173 and sign in. Generated Development passwords are in ignored `.env.demo`; see [account provisioning](authentication.md#local-demo-accounts). Liveness is `/health`; database connectivity is `/health/ready`. The top-bar health menu retains an explicit retry. A normal API start never migrates/seeds automatically: initialization is a separate Development-only CLI operation that exits afterward.
 
 Seed data includes 10 customers, 12 drivers, 8 vehicles and 36 shipments with mixed status/history. Repeated seeding is idempotent; deadlines do not shift with every restart. Use `--migrate` alone for an empty schema, `--seed` only after migration. A non-demo nonempty database is refused rather than overwritten.
 
@@ -63,7 +64,7 @@ dotnet ef database update --project backend/src/FleetFlow.Infrastructure --start
 dotnet run --project backend/src/FleetFlow.Api -- --seed
 ```
 
-Production-environment seeding is rejected. The unauthenticated API itself is not disabled by choosing Production; changing the environment is not an authorization boundary.
+Production-environment seeding is rejected. Identity remains required in every environment. Production cookies require HTTPS; merely choosing Production does not provide a complete deployment configuration.
 
 ## Stop and intentional reset
 

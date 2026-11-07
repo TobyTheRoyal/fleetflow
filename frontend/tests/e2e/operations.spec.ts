@@ -1,9 +1,5 @@
-import {
-  test,
-  expect,
-  type APIRequestContext,
-  type Page,
-} from '@playwright/test'
+import { test, expect } from './infra/test'
+import { type APIRequestContext, type Page } from '@playwright/test'
 import type {
   Customer,
   Driver,

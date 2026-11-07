@@ -1,3 +1,7 @@
+import { PasswordDialog } from '@/features/auth/PasswordDialog'
+import { useSession } from '@/features/auth/context'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { PageBoundary } from '@/components/shared/PageBoundary'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -13,6 +17,8 @@ import {
   Truck,
   Users,
   UserRound,
+  LogOut,
+  KeyRound,
   Route,
   PanelLeftClose,
 } from 'lucide-react'
@@ -27,6 +33,9 @@ const navigation = [
   { to: '/vehicles', label: 'Vehicles', icon: Truck },
 ]
 export function AppLayout() {
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const { user, logout } = useSession()
+  const [loggingOut, setLoggingOut] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileTrigger = useRef<HTMLButtonElement>(null)
@@ -45,7 +54,12 @@ export function AppLayout() {
   }, [])
   const links = (mobile = false) => (
     <nav aria-label={mobile ? 'Mobile navigation' : 'Main navigation'}>
-      {navigation.map(({ to, label, icon: Icon }) => (
+      {[
+        ...navigation,
+        ...(user?.role === 'Admin'
+          ? [{ to: '/users', label: 'Users', icon: UserRound }]
+          : []),
+      ].map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -61,16 +75,17 @@ export function AppLayout() {
     </nav>
   )
   useEffect(() => {
-    document.title = `FleetFlow · ${location.pathname === '/' ? 'Operations overview' : location.pathname.startsWith('/shipments/new') ? 'Create shipment' : (navigation.find((item) => item.to !== '/' && location.pathname.startsWith(item.to))?.label ?? 'Workspace')}`
+    document.title = `FleetFlow · ${location.pathname === '/' ? 'Operations overview' : location.pathname.startsWith('/shipments/new') ? 'Create shipment' : location.pathname.startsWith('/users') ? 'Users' : (navigation.find((item) => item.to !== '/' && location.pathname.startsWith(item.to))?.label ?? 'Workspace')}`
     // Navigation should place keyboard/screen-reader users at the new page, without
     // stealing focus when only a filter query parameter changes.
     if (document.activeElement?.closest('.sidebar'))
       document.getElementById('main-content')?.focus({ preventScroll: true })
   }, [location.pathname])
-  const current =
-    navigation.find(
-      (item) => item.to !== '/' && location.pathname.startsWith(item.to),
-    )?.label ?? 'Overview'
+  const current = location.pathname.startsWith('/users')
+    ? 'Users'
+    : (navigation.find(
+        (item) => item.to !== '/' && location.pathname.startsWith(item.to),
+      )?.label ?? 'Overview')
   return (
     <div className={`app-layout ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <a className="skip-link" href="#main-content">
@@ -177,13 +192,45 @@ export function AppLayout() {
               <kbd>⌘ K</kbd>
             </form>
             <SystemHealth />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="icon-button"
+              aria-label="Sign out"
+              title="Sign out"
+              disabled={loggingOut}
+              onClick={async () => {
+                setLoggingOut(true)
+                try {
+                  await logout()
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : 'Sign out failed. Try again.',
+                  )
+                } finally {
+                  setLoggingOut(false)
+                }
+              }}
+            >
+              <LogOut size={18} />
+            </Button>
+            <button
+              className="icon-button"
+              aria-label="Change password"
+              title="Change password"
+              onClick={() => setPasswordOpen(true)}
+            >
+              <KeyRound size={18} />
+            </button>
             <div className="demo-user">
               <span className="user-avatar">
                 <UserRound size={17} />
               </span>
               <div>
-                <strong>Dispatcher</strong>
-                <span>Local demo</span>
+                <strong>{user?.displayName}</strong>
+                <span>{user?.role}</span>
               </div>
             </div>
           </div>
@@ -196,6 +243,7 @@ export function AppLayout() {
           <span>All times in Europe/Vienna · Local workspace</span>
         </footer>
       </div>
+      {passwordOpen && <PasswordDialog close={() => setPasswordOpen(false)} />}
       <Dialog
         open={mobileOpen}
         returnFocusTo={mobileTrigger}

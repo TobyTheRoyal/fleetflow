@@ -13,7 +13,7 @@ class ResetGuardTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         (self.root / 'scripts').mkdir()
         (self.root / '.env').write_text('POSTGRES_PASSWORD=fictional-test-only\n')
-        for name in ('reset-demo.sh', 'setup-env.sh'):
+        for name in ('reset-demo.sh', 'setup-env.sh', 'demo-users.sh'):
             shutil.copy(Path(__file__).resolve().parents[1] / name, self.root / 'scripts' / name)
         binary = self.root / 'bin'
         binary.mkdir()
@@ -35,6 +35,7 @@ class ResetGuardTests(unittest.TestCase):
             'compose -p fleetflow down --volumes',
             'compose -p fleetflow up --build -d --wait',
             'compose -p fleetflow run --rm --no-deps api --migrate --seed',
+            'compose -p fleetflow --env-file .env --env-file .env.demo run --rm --no-deps api --migrate --seed-users',
         ])
 
 

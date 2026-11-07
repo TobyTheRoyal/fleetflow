@@ -1,6 +1,5 @@
+import { test, expect } from './infra/test'
 import {
-  test,
-  expect,
   type Page,
   type TestInfo,
   type APIRequestContext,
@@ -13,6 +12,7 @@ async function audit(page: Page, info: TestInfo) {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByLabel('Loading data')).toHaveCount(0)
   const result = await new AxeBuilder({ page }).withTags(tags).analyze()
+  await page.bringToFront()
   await info.attach('accessibility.json', {
     body: JSON.stringify({
       url: page.url(),
