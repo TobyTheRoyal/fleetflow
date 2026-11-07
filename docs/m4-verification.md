@@ -1,5 +1,7 @@
 # M4 verification — 2026-11-07
 
+Historical M4 results are preserved below. The subsequent investigation and current browser/CI status are recorded in [M4.1 verification](m41-verification.md).
+
 This report records executed checks, not intended CI results. Scope is M4 only. M0–M3 endpoints, DTOs, shipment rules and persistence architecture are preserved. No authentication, deployment, AI, SignalR or later milestone is implemented. No commit or push was performed.
 
 ## Environment

@@ -184,19 +184,19 @@ npm audit --prefix frontend --audit-level=moderate
 cd frontend
 npx playwright install --with-deps chromium firefox webkit
 npm run test:e2e
-# Full cross-browser matrix (also configured on Linux CI runners):
-npm run test:e2e:all
+# Explicit Chromium-only shortcut for local iteration:
+npm run test:e2e:chromium
 ```
 
 The backend uses xUnit with Microsoft.Testing.Platform, **not VSTest**. Integration fixtures own fresh PostgreSQL 18 containers/databases, exercising real constraints, migration, SQL queries, transaction rollback and concurrent writes. No EF InMemory provider certifies database behavior.
 
-The default E2E command runs Chromium. `test:e2e:all` selects Chromium, Firefox and WebKit. Local browser-engine limitations and the unverified hosted CI status are recorded in the M4 verification report; a fully green cross-browser result is not claimed.
+The default E2E command runs Chromium, Firefox and WebKit; `test:e2e:all` remains an equivalent alias. Playwright is temporarily pinned to 1.64.1 because 1.65.0 exposes a confirmed Firefox ARIA-reflection crash during accessibility scans. No browser or WCAG rule is excluded. See the [M4.1 stabilization report](docs/m41-verification.md) for local results, the upgrade gate and the separate hosted-CI status.
 
 Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback ports **5180/5434/5174**. It applies migration/seed, verifies real user journeys, audits accessibility and tears down only its own test volume. It does not use or reset the development database. Keep those ports free and run one invocation at a time; each invocation uses one worker and test-owned resources.
 
 Coverage reports are generated under `artifacts/backend/` and `frontend/coverage/`. Inspect coverage to find missing behaviors, not to chase an arbitrary percentage. `python3 scripts/coverage-summary.py` prints per-suite/per-assembly results. Generated API contracts, EF migration/snapshot files and the frontend bootstrap are excluded from line metrics; migration execution is still tested.
 
-[Testing guide and coverage scope](docs/testing.md) · [M4 actual verification results](docs/m4-verification.md)
+[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md)
 
 ## Continuous integration
 
@@ -235,6 +235,7 @@ Other boundaries: English UI and fixed Vienna display timezone; offset paginatio
 
 - **M0–M3:** foundation, domain/persistence, REST API and operations UI.
 - **M4:** quality review, CI configuration, security/accessibility checks and portfolio documentation.
+- **M4.1:** browser toolchain stabilization, repeated accessibility/interaction checks and CI diagnostics; hosted execution remains to be confirmed.
 - **M5, only after approval:** established authentication/authorization and scoped live updates.
 - **Later optional work:** useful, explicitly labeled AI assistance or a driver-oriented mobile exploration, after the secured core is complete.
 

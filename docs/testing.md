@@ -36,7 +36,7 @@ npm run check --prefix frontend
 npm audit --prefix frontend --audit-level=moderate
 ```
 
-`check` executes lint, formatting, TypeScript (including E2E source), Vitest/V8 coverage and a production build. `npm run test --prefix frontend` supports interactive test development. Reports are `frontend/coverage/index.html`, `lcov.info` and `coverage-summary.json`.
+`check` executes lint, formatting, TypeScript (including E2E source), Vitest/V8 coverage, Node infrastructure tests and a production build. `npm run test --prefix frontend` supports interactive test development. Reports are `frontend/coverage/index.html`, `lcov.info` and `coverage-summary.json`.
 
 All application TypeScript/TSX is included, including unvisited components; test fixtures/tests, generated OpenAPI output and the DOM bootstrap are excluded. Component tests intentionally mock HTTP. They cover actual DTO parsing/errors, cancellation and ambiguous writes, form validation/server errors, permitted actions, stale-version locks including refresh failure, bounded timeline paging, master-data conflicts, query retries/invalidation, layout navigation and error-boundary recovery.
 
@@ -57,11 +57,11 @@ npm run generate:api
 cd frontend
 npx playwright install --with-deps chromium firefox webkit
 CHECK_API_CONTRACT=1 npm run test:e2e
-# All three browser engines:
-CHECK_API_CONTRACT=1 npm run test:e2e:all
+# Explicit single-browser iteration:
+CHECK_API_CONTRACT=1 npm run test:e2e:chromium
 ```
 
-The default `test:e2e` script runs Chromium; CI explicitly selects each browser from the matrix on Linux runners. Keep adequate free space in the Docker VM as well as on the host before running integration tests (at least 8 GB is recommended). Host free space does not imply that the Docker VM has space.
+The default `test:e2e` script runs all three browser projects; `test:e2e:all` is an alias. CI explicitly selects each browser from the matrix on separate Linux runners. Keep adequate free space in the Docker VM as well as on the host before running integration tests (at least 8 GB is recommended). Host free space does not imply that the Docker VM has space.
 
 On Linux, `--with-deps` installs the browser system libraries and may require sudo; macOS uses the matching native browser binaries. Browser engines are Chromium, Firefox and WebKit, not a certification of every installed Chrome/Safari version or real iOS device.
 
@@ -71,17 +71,19 @@ Each mutation test creates its own deterministic resource identities keyed by te
 
 ```sh
 npm run test:e2e -- --repeat-each=2 --grep 'create, edit|master-data'
+# Previously failing cases and pointer/focus recovery:
+npm run test:e2e -- --repeat-each=5 --grep 'shipment detail|ARIA references|validation dialog|dialogs release'
 ```
 
 A hard interruption can leave a disposable test stack. From `frontend/`, use `node tests/e2e/infra/cleanup.mjs --confirm`; this command names only `fleetflow-e2e`, never `fleetflow`, and does not need the original database password. Temporary directories from hard-killed processes may remain until normal OS cleanup. CI has an always-run fallback cleanup; a forcibly killed runner is disposed by GitHub.
 
-Playwright writes an HTML report, JUnit XML, failure screenshots and failure traces. API diagnostics in CI redact the generated database password before writing a scoped log. Uploaded artifacts contain synthetic test data only; do not use this configuration for real customer data or future authenticated-session traces without reviewing redaction.
+Playwright writes an HTML report, JUnit XML, failure screenshots and failure traces. Stack diagnostics in CI record the setup stage, container status and bounded API/PostgreSQL logs, with the generated password redacted. Diagnostics are also attempted on setup failure before teardown; a project owned by another invocation is never logged or removed. Inherited shell exports cannot replace the reserved test ports/database/credential. Uploaded artifacts contain synthetic test data only; do not use this configuration for real customer data or future authenticated-session traces without reviewing redaction.
 
 ### Accessibility scope
 
 Axe checks WCAG 2 A/AA and 2.1 A/AA rules on the actual pages, shipment details and representative validation/assignment/status dialogs, with no disabled contrast rule or blanket exclusions. Keyboard tests verify dialog focus containment/restoration, navigation and page recovery. Responsive checks use 1440, 820, 390 and 320 pixel widths and contain wide tables within their own scroll regions.
 
-The Axe run uses its documented direct in-page execution mode because native blank-page result aggregation crashed Firefox on this macOS host. No WCAG rules are disabled; an explicit no-iframe assertion protects the scope. Cross-origin frame auditing is not provided by that mode and must be revisited if embedded frames are added. The native macOS WebKit driver also showed pointer interception failures despite correct DOM hit testing; the configured Linux CI matrix remains to be verified on hosted runners. A separate exploratory Linux ARM64 run passed 50 of 51 tests, with one Firefox accessibility page crash. See the M4 verification report for the exact limitations.
+Axe uses its normal full analysis mode, including frame aggregation. The previous legacy-mode workaround is removed. All WCAG tags/rules remain active, including contrast, and the validation-dialog audit explicitly exercises the primary button hover state. A regression case combines role locators with an ARIA-referenced label and a full scan. Playwright 1.64.1 is pinned with a deduplicated matching core after a controlled 1.65.0 comparison confirmed the Firefox regression. Do not upgrade the runner alone or patch browser internals; rerun the full matrix and repeated regression cases with matching bundled browsers. See [M4.1 results and sources](m41-verification.md).
 
 Automated checks cannot prove full accessibility. Review axe `incomplete` findings, zoom, screen-reader behavior, high contrast modes, touch target sizes and real-device behavior manually before making a conformance claim. No formal WCAG certification is claimed.
 
@@ -93,4 +95,4 @@ python3 scripts/check-public-files.py
 git diff --check
 ```
 
-The public-file check rejects private instruction/configuration filenames and occurrences of the current local password in public Git candidates. It is a focused privacy safeguard, not a complete secret-scanning engine. Historical verification reports remain milestone-specific; use [M4 results](m4-verification.md) for the current checks.
+The public-file check rejects private instruction/configuration filenames and occurrences of the current local password in public Git candidates. It is a focused privacy safeguard, not a complete secret-scanning engine. Historical verification reports remain milestone-specific; use [M4.1 results](m41-verification.md) for the current browser/CI stabilization checks.

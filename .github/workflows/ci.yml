@@ -103,11 +103,21 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Record browser toolchain
+        run: |
+          node --version
+          npm ls @playwright/test playwright playwright-core
       # Global setup builds the real Release API image, starts an isolated Compose
       # stack on loopback, applies migrations/seed and waits for DB/API readiness.
-      - run: npx playwright test --project=${{ matrix.browser }}
+      - name: Run browser and accessibility tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ../artifacts/e2e
+          npx playwright test --project=${{ matrix.browser }} 2>&1 | tee ../artifacts/e2e/${{ matrix.browser }}.log
         env:
           CHECK_API_CONTRACT: '1'
+          DEBUG: pw:browser
       - if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -115,6 +125,7 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            artifacts/e2e/
           if-no-files-found: warn
           retention-days: 7
       - name: Clean disposable E2E stack after interruption
