@@ -58,3 +58,27 @@ it('preserves cancellation while reading a response body', async () => {
   mockApi(() => response)
   await expect(request('/test', z.object({}))).rejects.toBe(aborted)
 })
+
+it('does not encourage blind write retries after an ambiguous network failure', async () => {
+  mockApi(() => Promise.reject(new Error('private transport details')))
+  await expect(
+    request('/api/v1/shipments', z.object({}), { method: 'POST', body: {} }),
+  ).rejects.toMatchObject({
+    code: 'unknown_write_outcome',
+    status: 0,
+    message: expect.stringContaining('Check the record or shipment list'),
+  })
+})
+
+it('warns about a possibly saved update when a write response is incompatible', async () => {
+  mockApi(() => json({ incompatible: true }))
+  await expect(
+    request('/api/v1/shipments', z.object({ id: z.string() }), {
+      method: 'POST',
+      body: {},
+    }),
+  ).rejects.toMatchObject({
+    code: 'unknown_write_outcome',
+    message: expect.stringContaining('may have been saved'),
+  })
+})

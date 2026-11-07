@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type RefObject } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { Dialog } from '@/components/ui/dialog'
@@ -12,10 +12,12 @@ export function StatusDialog({
   shipment,
   target,
   close,
+  returnFocusTo,
 }: {
   shipment: Shipment
   target: ShipmentStatus
   close: () => void
+  returnFocusTo?: RefObject<HTMLElement | null>
 }) {
   const mutation = useShipmentWrite(shipment.id)
   const client = useQueryClient()
@@ -52,6 +54,7 @@ export function StatusDialog({
   return (
     <Dialog
       open
+      returnFocusTo={returnFocusTo}
       onOpenChange={(open) => {
         if (!open) close()
       }}

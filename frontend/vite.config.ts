@@ -27,6 +27,18 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test-setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text-summary', 'html', 'lcov', 'json-summary'],
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [
+          'src/**/*.test.{ts,tsx}',
+          'src/test/**',
+          'src/test-setup.ts',
+          'src/main.tsx',
+          'src/types/api.generated.ts',
+        ],
+      },
       clearMocks: true,
       restoreMocks: true,
     },

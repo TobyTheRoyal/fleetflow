@@ -24,7 +24,7 @@ internal sealed class EfTransaction(FleetFlowDbContext db)
         {
             throw FleetFlowException.Conflict("duplicate_value", "A record with this unique value already exists.");
         }
-        catch (PostgresException exception) when (exception.SqlState is PostgresErrorCodes.DeadlockDetected or PostgresErrorCodes.SerializationFailure)
+        catch (Exception exception) when (IsReservationConcurrencyFailure(exception))
         {
             throw FleetFlowException.Conflict("concurrent_operation", "A competing operation changed the reservation. Please retry.");
         }
@@ -33,6 +33,16 @@ internal sealed class EfTransaction(FleetFlowDbContext db)
             // A failed operation must not leave pending changes/events in a reused request scope.
             db.ChangeTracker.Clear();
         }
+    }
+
+    private static bool IsReservationConcurrencyFailure(Exception exception)
+    {
+        // SaveChanges wraps provider errors in DbUpdateException and Npgsql's
+        // execution strategy may add InvalidOperationException for transient errors.
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+            if (current is PostgresException { SqlState: PostgresErrorCodes.DeadlockDetected or PostgresErrorCodes.SerializationFailure })
+                return true;
+        return false;
     }
 
 }

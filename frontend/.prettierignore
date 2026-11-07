@@ -6,3 +6,5 @@ test-results
 package-lock.json
 
 src/types/api.generated.ts
+
+../artifacts

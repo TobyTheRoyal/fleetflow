@@ -53,14 +53,24 @@ test.beforeEach(async ({ request }, info) => {
     phone: null,
   })
   driver = await post(request, 'drivers', {
-    employeeNumber: 'E2E-' + info.testId.slice(-8),
+    employeeNumber:
+      'E2E-' +
+      info.project.name.slice(0, 2) +
+      '-' +
+      info.testId.slice(-8) +
+      info.repeatEachIndex,
     firstName: 'Alex',
     lastName: 'Testdriver',
     active: true,
     licenseCategory: 'C',
   })
   vehicle = await post(request, 'vehicles', {
-    plateNumber: 'E2E-' + info.testId.slice(-8),
+    plateNumber:
+      'E2E-' +
+      info.project.name.slice(0, 2) +
+      '-' +
+      info.testId.slice(-8) +
+      info.repeatEachIndex,
     type: 'Truck',
     maxPayloadKg: 18000,
     status: 'Available',
@@ -255,41 +265,45 @@ test('real overlapping reservations show actionable conflict and keep history un
 })
 test('master-data creation/editing and mobile keyboard navigation work', async ({
   page,
-}) => {
+}, info) => {
+  const label = `${info.project.name}-${info.repeatEachIndex}`
+
   await page.goto('/customers')
   await page.getByRole('button', { name: 'Add customer', exact: true }).click()
-  await page.getByLabel('Company name').fill('E2E UI Customer')
+  await page.getByLabel('Company name').fill(`Aardvark E2E ${label} Demo`)
   await page.getByLabel('Contact name').fill('Taylor Demo')
   await page.getByLabel('Email', { exact: true }).fill('taylor@example.test')
   await page.getByRole('button', { name: 'Create record' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
-  await expect(page.getByText('E2E UI Customer', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText(`Aardvark E2E ${label} Demo`, { exact: true }),
+  ).toBeVisible()
   await page.goto('/drivers')
   await page.getByRole('button', { name: 'Add driver', exact: true }).click()
-  await page.getByLabel('Employee number').fill('E2E-UI')
+  await page.getByLabel('Employee number').fill(`AAA-${label}`)
   await page.getByLabel('First name').fill('Jordan')
-  await page.getByLabel('Last name').fill('Example')
+  await page.getByLabel('Last name').fill(`Example ${label}`)
   await page.getByRole('button', { name: 'Create record' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
   await page
     .getByRole('row')
-    .filter({ hasText: 'Jordan Example' })
+    .filter({ hasText: `Jordan Example ${label}` })
     .getByRole('button', { name: 'Edit' })
     .click()
   await page.getByLabel('Active driver').uncheck()
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(
-    page.getByRole('row').filter({ hasText: 'Jordan Example' }),
+    page.getByRole('row').filter({ hasText: `Jordan Example ${label}` }),
   ).toContainText('Inactive')
   await page.goto('/vehicles')
   await page.getByRole('button', { name: 'Add vehicle', exact: true }).click()
-  await page.getByLabel('Registration plate').fill('E2E-UI-VAN')
+  await page.getByLabel('Registration plate').fill(`AAA-${label}`)
   await page.getByLabel('Vehicle type').selectOption('Van')
   await page.getByRole('button', { name: 'Create record' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
   await page
     .getByRole('row')
-    .filter({ hasText: 'E2E-UI-VAN' })
+    .filter({ hasText: `AAA-${label}` })
     .getByRole('button', { name: 'Edit' })
     .click()
   await page
@@ -297,7 +311,7 @@ test('master-data creation/editing and mobile keyboard navigation work', async (
     .selectOption('Maintenance')
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(
-    page.getByRole('row').filter({ hasText: 'E2E-UI-VAN' }),
+    page.getByRole('row').filter({ hasText: `AAA-${label}` }),
   ).toContainText('Maintenance')
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Open navigation' }).click()

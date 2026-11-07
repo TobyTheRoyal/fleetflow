@@ -7,13 +7,28 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
-  reporter: 'list',
-  use: { baseURL: 'http://127.0.0.1:5174', trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ['junit', { outputFile: 'test-results/results.xml' }],
+  ],
+  use: {
+    baseURL: 'http://127.0.0.1:5174',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
   webServer: {
     command: 'npm run dev -- --port 5174',
     url: 'http://127.0.0.1:5174',
     reuseExistingServer: false,
-    env: { API_PROXY_TARGET: 'http://127.0.0.1:5180', VITE_API_BASE_URL: '' },
+    env: {
+      API_PROXY_TARGET: 'http://127.0.0.1:5180',
+      VITE_API_BASE_URL: '',
+    },
   },
 })

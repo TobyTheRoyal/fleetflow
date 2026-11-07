@@ -1,6 +1,6 @@
 import { ShipmentTimeline } from './ShipmentTimeline'
 import { statusLabel } from '@/lib/status'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -38,6 +38,7 @@ export function ShipmentDetailPage() {
     queryFn: ({ signal }) =>
       request(`/api/v1/shipments/${id}`, shipmentSchema, { signal }),
   })
+  const trigger = useRef<HTMLElement | null>(null)
   const [dialog, setDialog] = useState<{
     type: 'assign' | 'status'
     shipment: Shipment
@@ -84,9 +85,10 @@ export function ShipmentDetailPage() {
                 shipment.status === 'Draft' &&
                 (!shipment.assignedDriverId || !shipment.assignedVehicleId)
               }
-              onClick={() =>
+              onClick={(event) => {
+                trigger.current = event.currentTarget
                 setDialog({ type: 'status', shipment, target: action.status })
-              }
+              }}
             >
               {action.status === 'Delivered' ? (
                 <CheckCircle2 size={16} />
@@ -243,7 +245,10 @@ export function ShipmentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full mt-5"
-                  onClick={() => setDialog({ type: 'assign', shipment })}
+                  onClick={(event) => {
+                    trigger.current = event.currentTarget
+                    setDialog({ type: 'assign', shipment })
+                  }}
                 >
                   <Plus size={15} />
                   {shipment.assignedDriverId
@@ -284,9 +289,10 @@ export function ShipmentDetailPage() {
             {editable && (
               <button
                 className="text-button text-red-700 mt-5"
-                onClick={() =>
+                onClick={(event) => {
+                  trigger.current = event.currentTarget
                   setDialog({ type: 'status', shipment, target: 'Cancelled' })
-                }
+                }}
               >
                 <X size={14} />
                 Cancel shipment
@@ -297,12 +303,14 @@ export function ShipmentDetailPage() {
       </div>
       {dialog?.type === 'assign' && (
         <AssignmentDialog
+          returnFocusTo={trigger}
           shipment={dialog.shipment}
           close={() => setDialog(null)}
         />
       )}
       {dialog?.type === 'status' && dialog.target && (
         <StatusDialog
+          returnFocusTo={trigger}
           shipment={dialog.shipment}
           target={dialog.target}
           close={() => setDialog(null)}

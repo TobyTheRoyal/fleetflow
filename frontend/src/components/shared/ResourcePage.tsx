@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useRef, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Plus, Pencil } from 'lucide-react'
 import { z } from 'zod'
@@ -44,6 +44,7 @@ export function ResourcePage<T extends { id: string }>({
       ),
     placeholderData: keepPreviousData,
   })
+  const trigger = useRef<HTMLElement | null>(null)
   const [editor, setEditor] = useState<{ item?: T } | null>(null)
   const [busy, setBusy] = useState(false)
   return (
@@ -53,7 +54,12 @@ export function ResourcePage<T extends { id: string }>({
         title={title}
         description={description}
         action={
-          <Button onClick={() => setEditor({})}>
+          <Button
+            onClick={(event) => {
+              trigger.current = event.currentTarget
+              setEditor({})
+            }}
+          >
             <Plus size={17} />
             Add {singular}
           </Button>
@@ -113,7 +119,10 @@ export function ResourcePage<T extends { id: string }>({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setEditor({ item })}
+                          onClick={(event) => {
+                            trigger.current = event.currentTarget
+                            setEditor({ item })
+                          }}
                         >
                           <Pencil size={14} />
                           Edit
@@ -128,10 +137,33 @@ export function ResourcePage<T extends { id: string }>({
         ) : (
           query.data && (
             <EmptyState
-              title={`No ${title.toLowerCase()} here yet`}
-              description={`Add a ${singular} to start building your logistics network.`}
+              title={
+                query.data.totalCount > 0
+                  ? `No ${title.toLowerCase()} on this page`
+                  : `No ${title.toLowerCase()} here yet`
+              }
+              description={
+                query.data.totalCount > 0
+                  ? 'Results may have changed. Return to the first page to continue.'
+                  : `Add a ${singular} to start building your logistics network.`
+              }
               action={
-                <Button onClick={() => setEditor({})}>Add {singular}</Button>
+                <>
+                  {query.data.totalCount > 0 ? (
+                    <Button onClick={() => change({ page: 1 })}>
+                      Go to first page
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={(event) => {
+                        trigger.current = event.currentTarget
+                        setEditor({})
+                      }}
+                    >
+                      Add {singular}
+                    </Button>
+                  )}
+                </>
               }
             />
           )
@@ -157,6 +189,7 @@ export function ResourcePage<T extends { id: string }>({
           title={`${editor.item ? 'Edit' : 'Add'} ${singular}`}
           description={`Manage ${singular} details for your FleetFlow workspace.`}
           busy={busy}
+          returnFocusTo={trigger}
         >
           {renderForm(editor.item, () => setEditor(null), setBusy)}
         </Dialog>

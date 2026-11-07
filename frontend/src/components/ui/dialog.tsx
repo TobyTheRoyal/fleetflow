@@ -1,6 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
-import { useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode, type RefObject } from 'react'
 export function Dialog({
   open,
   onOpenChange,
@@ -9,6 +9,7 @@ export function Dialog({
   children,
   busy = false,
   wide = false,
+  returnFocusTo,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -17,6 +18,7 @@ export function Dialog({
   children: ReactNode
   busy?: boolean
   wide?: boolean
+  returnFocusTo?: RefObject<HTMLElement | null>
 }) {
   const returnFocus = useRef<HTMLElement | null>(null)
   return (
@@ -36,9 +38,16 @@ export function Dialog({
                 : null
           }}
           onCloseAutoFocus={(event) => {
-            if (returnFocus.current?.isConnected) {
+            const explicit = returnFocusTo?.current
+            const target = explicit?.isConnected
+              ? explicit
+              : returnFocus.current?.isConnected &&
+                  returnFocus.current !== document.body
+                ? returnFocus.current
+                : document.getElementById('main-content')
+            if (target?.isConnected) {
               event.preventDefault()
-              returnFocus.current.focus()
+              target.focus()
             }
           }}
           className={`dialog-content ${wide ? 'dialog-wide' : ''}`}

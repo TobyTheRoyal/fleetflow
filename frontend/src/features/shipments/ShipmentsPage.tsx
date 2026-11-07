@@ -199,15 +199,28 @@ export function ShipmentsPage() {
                 ) : (
                   <EmptyState
                     title={
-                      hasFilters ? 'No matching shipments' : 'No shipments yet'
+                      query.data.totalCount > 0
+                        ? 'No shipments on this page'
+                        : hasFilters
+                          ? 'No matching shipments'
+                          : 'No shipments yet'
                     }
                     description={
-                      hasFilters
-                        ? 'Try a different search or clear your filters to see more shipments.'
-                        : 'Create a transport order to start planning your deliveries.'
+                      query.data.totalCount > 0
+                        ? 'Results may have changed. Return to the first page to continue.'
+                        : hasFilters
+                          ? 'Try a different search or clear your filters to see more shipments.'
+                          : 'Create a transport order to start planning your deliveries.'
                     }
                     action={
-                      hasFilters ? (
+                      query.data.totalCount > 0 ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => change({ page: 1 })}
+                        >
+                          Go to first page
+                        </Button>
+                      ) : hasFilters ? (
                         <Button
                           variant="outline"
                           onClick={() =>

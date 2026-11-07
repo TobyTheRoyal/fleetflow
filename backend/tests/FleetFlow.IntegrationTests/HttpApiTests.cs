@@ -384,6 +384,45 @@ public sealed class HttpApiTests(PostgreSqlFixture server) : IClassFixture<Postg
         Assert.Equal(2, (await Get<PageResponse<ShipmentEventResponse>>($"/api/v1/shipments/{shipment.Id}/events")).TotalCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Storage_concurrency_errors_are_safe_conflicts_and_allow_atomic_retry(bool serialization)
+    {
+        var resources = await Resources();
+        var shipment = await CreateAssigned(resources);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FleetFlowDbContext>();
+            // Real PostgreSQL errors raised during SaveChanges are wrapped by EF.
+            var fault = serialization ? """
+                CREATE FUNCTION fail_concurrent_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+                IF NEW."EventType" = 'StatusChanged' THEN RAISE serialization_failure; END IF; RETURN NEW; END $$;
+                CREATE TRIGGER fail_concurrent_event BEFORE INSERT ON "ShipmentEvents" FOR EACH ROW EXECUTE FUNCTION fail_concurrent_event();
+                """ : """
+                CREATE FUNCTION fail_concurrent_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+                IF NEW."EventType" = 'StatusChanged' THEN RAISE deadlock_detected; END IF; RETURN NEW; END $$;
+                CREATE TRIGGER fail_concurrent_event BEFORE INSERT ON "ShipmentEvents" FOR EACH ROW EXECUTE FUNCTION fail_concurrent_event();
+                """;
+            await db.Database.ExecuteSqlRawAsync(fault, Token);
+        }
+        using var response = await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/status",
+            new ChangeStatusRequest { Version = shipment.Version, Status = ShipmentStatus.Planned }, Json, Token);
+        await Problem(response, 409, "concurrent_operation");
+        var unchanged = await Get<ShipmentResponse>($"/api/v1/shipments/{shipment.Id}");
+        Assert.Equal(ShipmentStatus.Draft, unchanged.Status);
+        Assert.Equal(shipment.Version, unchanged.Version);
+        Assert.Equal(2, (await Get<PageResponse<ShipmentEventResponse>>($"/api/v1/shipments/{shipment.Id}/events")).TotalCount);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<FleetFlowDbContext>().Database.ExecuteSqlRawAsync(
+                "DROP TRIGGER fail_concurrent_event ON \"ShipmentEvents\"; DROP FUNCTION fail_concurrent_event();", Token);
+        }
+        var retried = await Plan(shipment);
+        Assert.Equal(shipment.Version + 1, retried.Version);
+        Assert.Equal(3, (await Get<PageResponse<ShipmentEventResponse>>($"/api/v1/shipments/{shipment.Id}/events")).TotalCount);
+    }
+
     [Fact]
     public async Task Restarting_the_api_host_preserves_database_state()
     {

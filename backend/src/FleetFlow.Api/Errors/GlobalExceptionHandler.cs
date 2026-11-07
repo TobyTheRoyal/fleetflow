@@ -13,7 +13,8 @@ internal sealed class GlobalExceptionHandler(
     {
         var failure = exception as FleetFlowException;
         if (failure is null)
-            logger.LogError(exception, "Unexpected request failure. TraceId: {TraceId}", httpContext.TraceIdentifier);
+            logger.LogError("Unexpected request failure. ExceptionType: {ExceptionType}. TraceId: {TraceId}",
+                exception.GetType().Name, httpContext.TraceIdentifier);
         var status = failure?.Kind switch
         {
             FailureKind.Validation => StatusCodes.Status422UnprocessableEntity,

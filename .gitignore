@@ -28,3 +28,11 @@ fleetflow_codex_pack/
 *.user
 *.suo
 *.log
+
+# Local verification artifacts and coverage reports
+artifacts/
+
+__pycache__/
+*.pyc
+
+._*

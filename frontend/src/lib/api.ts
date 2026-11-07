@@ -59,9 +59,11 @@ export async function request<T>(
     if (error instanceof DOMException && error.name === 'AbortError')
       throw error
     throw new ApiError(
-      'Cannot reach FleetFlow. Check the API connection and try again.',
+      options.method
+        ? 'Could not confirm the update. Check the record or shipment list before submitting again.'
+        : 'Cannot reach FleetFlow. Check the API connection and try again.',
       0,
-      'network_error',
+      options.method ? 'unknown_write_outcome' : 'network_error',
     )
   }
   const body: unknown = await response.json().catch((error: unknown) => {
@@ -86,9 +88,11 @@ export async function request<T>(
   const parsed = schema.safeParse(body)
   if (!parsed.success)
     throw new ApiError(
-      'The API returned an unexpected response. Refresh the page or check the API version.',
+      options.method
+        ? 'The update may have been saved, but FleetFlow could not read the response. Check the record or shipment list before submitting again.'
+        : 'The API returned an unexpected response. Refresh the page or check the API version.',
       response.status,
-      'invalid_response',
+      options.method ? 'unknown_write_outcome' : 'invalid_response',
     )
   return parsed.data
 }

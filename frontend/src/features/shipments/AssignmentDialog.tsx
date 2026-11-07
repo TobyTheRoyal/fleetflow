@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type RefObject } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,9 +23,11 @@ const assignment = z.object({
 export function AssignmentDialog({
   shipment,
   close,
+  returnFocusTo,
 }: {
   shipment: Shipment
   close: () => void
+  returnFocusTo?: RefObject<HTMLElement | null>
 }) {
   const drivers = useDriverOptions()
   const vehicles = useVehicleOptions()
@@ -78,6 +80,7 @@ export function AssignmentDialog({
   return (
     <Dialog
       open
+      returnFocusTo={returnFocusTo}
       onOpenChange={(open) => {
         if (!open) close()
       }}

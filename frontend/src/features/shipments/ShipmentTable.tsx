@@ -82,6 +82,11 @@ export function ShipmentTable({
                   <span className={overdue ? 'text-amber-700 font-medium' : ''}>
                     {formatDate(shipment.deliveryDeadlineUtc)}
                   </span>
+                  {!compact && (
+                    <span className="cell-secondary">
+                      Pickup: {formatDate(shipment.pickupWindowStartUtc)}
+                    </span>
+                  )}
                   {overdue && (
                     <span className="cell-secondary text-amber-700 flex items-center gap-1">
                       <AlertTriangle size={12} />

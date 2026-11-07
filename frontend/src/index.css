@@ -231,7 +231,7 @@ svg {
   align-items: center;
   gap: 12px;
   font-size: 12px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .breadcrumbs strong {
   color: #475569;
@@ -246,7 +246,7 @@ svg {
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .global-search input {
   outline: none;
@@ -289,7 +289,7 @@ svg {
 .demo-user div span {
   display: block;
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 2px;
 }
 .health-details summary {
@@ -343,7 +343,7 @@ svg {
   gap: 20px;
   justify-content: space-between;
   padding: 20px 34px;
-  color: #65758c;
+  color: #5c6b81;
   font-size: 10px;
   border-top: 1px solid #e6eaf1;
 }
@@ -359,7 +359,7 @@ svg {
   font-size: 9px;
   letter-spacing: 1.8px;
   font-weight: 700;
-  color: #65758c;
+  color: #5c6b81;
   margin-bottom: 9px;
 }
 h1 {
@@ -373,7 +373,7 @@ h1 {
   margin-top: 9px;
   font-size: 12px;
   line-height: 1.7;
-  color: #65758c;
+  color: #5c6b81;
 }
 .page-actions {
   flex-shrink: 0;
@@ -387,14 +387,14 @@ h1 {
   align-items: center;
   justify-content: space-between;
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
   margin-bottom: 15px;
 }
 .live-label {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .kpi-grid {
   display: grid;
@@ -439,7 +439,7 @@ h1 {
 }
 .kpi-label {
   font-size: 11px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 22px;
 }
 .kpi-number {
@@ -452,7 +452,7 @@ h1 {
 }
 .kpi-note {
   font-size: 9px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 9px;
 }
 .panel {
@@ -477,7 +477,7 @@ h1 {
 }
 .panel-heading p {
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 5px;
 }
 .text-button {
@@ -486,7 +486,7 @@ h1 {
   gap: 6px;
   font-size: 10px;
   font-weight: 600;
-  color: #4b79c5;
+  color: #3467b1;
 }
 .text-button:hover {
   color: #1d4ed8;
@@ -513,7 +513,7 @@ h1 {
   align-items: center;
   gap: 7px;
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .flow-stages strong {
   grid-column: 2;
@@ -561,7 +561,7 @@ h1 {
   background: #49ae91;
 }
 .panel-footnote {
-  color: #65758c;
+  color: #5c6b81;
   font-size: 8px;
   padding: 0 23px 20px;
 }
@@ -592,7 +592,7 @@ h1 {
 .attention-list div > span {
   display: block;
   font-size: 9px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 3px;
 }
 .attention-deadline {
@@ -623,7 +623,7 @@ h1 {
 }
 .data-table thead {
   background: #f9fafc;
-  color: #65758c;
+  color: #5c6b81;
   font-size: 9px;
 }
 .data-table th {
@@ -658,7 +658,7 @@ h1 {
 }
 .cell-secondary {
   display: block;
-  color: #65758c;
+  color: #5c6b81;
   font-size: 9px;
   margin-top: 5px;
 }
@@ -738,7 +738,7 @@ h1 {
   color: #2563eb;
 }
 .unassigned-label {
-  color: #65758c;
+  color: #5c6b81;
   font-size: 10px;
 }
 .count-chip {
@@ -746,7 +746,7 @@ h1 {
   border-radius: 5px;
   padding: 3px 6px;
   background: #f0f4fb;
-  color: #748aa9;
+  color: #526784;
   font-size: 10px;
 }
 .filter-bar {
@@ -790,20 +790,20 @@ h1 {
   align-items: center;
   gap: 12px;
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .filter-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   background: #fff5e3;
-  color: #ae7d31;
+  color: #815d1e;
   padding: 4px 7px;
   border-radius: 4px;
 }
 .updating {
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -841,7 +841,7 @@ h1 {
   line-height: 1.5;
 }
 .control::placeholder {
-  color: #65758c;
+  color: #5c6b81;
 }
 .control:focus {
   outline: 2px solid #8eb6ff;
@@ -853,7 +853,7 @@ h1 {
 }
 .control:disabled {
   background: #f4f6f9;
-  color: #65758c;
+  color: #5c6b81;
 }
 .control.compact {
   width: auto;
@@ -873,7 +873,7 @@ h1 {
 }
 .field-hint {
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 6px;
   line-height: 1.6;
 }
@@ -928,7 +928,7 @@ h1 {
   border-top: 1px solid #e9edf4;
   font-size: 10px;
   line-height: 1.7;
-  color: #65758c;
+  color: #5c6b81;
 }
 .address-group {
   display: grid;
@@ -951,13 +951,13 @@ h1 {
   align-items: center;
   gap: 7px;
   font-size: 11px;
-  color: #65758c;
+  color: #5c6b81;
   margin-bottom: 22px;
 }
 .info-note {
   font-size: 11px;
   line-height: 1.8;
-  color: #647d9f;
+  color: #4f6484;
   background: #f3f7fd;
   border: 1px solid #e3ecf9;
   border-radius: 7px;
@@ -987,7 +987,7 @@ h1 {
   display: block;
   font-size: 10px;
   line-height: 1.7;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 5px;
 }
 .person-cell {
@@ -1002,7 +1002,7 @@ h1 {
   height: 32px;
   border-radius: 50%;
   background: #ecf1fa;
-  color: #7b8fb2;
+  color: #526784;
   font-size: 10px;
 }
 .mono {
@@ -1036,7 +1036,7 @@ h1 {
   display: flex;
   gap: 10px;
   align-items: center;
-  color: #a6b2c3;
+  color: #5c6b81;
   font-size: 11px;
 }
 .workflow-step > span {
@@ -1056,7 +1056,7 @@ h1 {
   color: #c3ccda;
 }
 .workflow-step.complete {
-  color: #4c78ba;
+  color: #3467b1;
 }
 .workflow-step.complete > span {
   border-color: #c4d8f8;
@@ -1107,7 +1107,7 @@ h1 {
 }
 .route-stop p:not(.eyebrow) {
   font-size: 11px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 8px;
   line-height: 1.8;
 }
@@ -1117,11 +1117,11 @@ h1 {
   gap: 8px;
   margin-top: 22px;
   font-size: 9px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .schedule-label strong {
   display: block;
-  color: #647995;
+  color: #526784;
   font-size: 11px;
   font-weight: 500;
   margin-top: 5px;
@@ -1132,7 +1132,7 @@ h1 {
   border-top: 1px solid #edf0f5;
   padding: 20px 25px;
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .actual-times strong {
   display: block;
@@ -1149,7 +1149,7 @@ h1 {
 .cargo-summary span {
   display: block;
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .cargo-summary strong {
   font-size: 19px;
@@ -1161,7 +1161,7 @@ h1 {
   font-size: 11px;
   line-height: 1.9;
   padding: 0 23px 23px;
-  color: #65758c;
+  color: #5c6b81;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1186,7 +1186,7 @@ h1 {
 .assignment-item div > span {
   display: block;
   font-size: 9px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .assignment-item strong {
   font-size: 12px;
@@ -1202,7 +1202,7 @@ h1 {
 }
 .record-meta span {
   font-size: 10px;
-  color: #65758c;
+  color: #5c6b81;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1257,7 +1257,7 @@ h1 {
 }
 .timeline-entry p {
   font-size: 11px;
-  color: #65758c;
+  color: #5c6b81;
   margin-top: 6px;
   line-height: 1.8;
   white-space: pre-wrap;
@@ -1265,7 +1265,7 @@ h1 {
 }
 .timeline-meta {
   font-size: 9px;
-  color: #65758c;
+  color: #5c6b81;
   display: flex;
   gap: 15px;
   margin-top: 8px;
@@ -1320,7 +1320,7 @@ h1 {
   width: 30px;
   height: 30px;
   border-radius: 5px;
-  color: #65758c;
+  color: #5c6b81;
 }
 .icon-button:hover {
   background: #f1f5fb;

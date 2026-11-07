@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      frontend:
+        patterns: ['*']
+  - package-ecosystem: nuget
+    # Central package versions live in the repository-root Directory.Packages.props.
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dotnet:
+        patterns: ['*']
+  - package-ecosystem: docker
+    directory: /backend/src/FleetFlow.Api
+    schedule:
+      interval: weekly

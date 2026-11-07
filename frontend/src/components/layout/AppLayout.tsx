@@ -29,6 +29,7 @@ const navigation = [
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const mobileTrigger = useRef<HTMLButtonElement>(null)
   const search = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -59,6 +60,13 @@ export function AppLayout() {
       ))}
     </nav>
   )
+  useEffect(() => {
+    document.title = `FleetFlow · ${location.pathname === '/' ? 'Operations overview' : location.pathname.startsWith('/shipments/new') ? 'Create shipment' : (navigation.find((item) => item.to !== '/' && location.pathname.startsWith(item.to))?.label ?? 'Workspace')}`
+    // Navigation should place keyboard/screen-reader users at the new page, without
+    // stealing focus when only a filter query parameter changes.
+    if (document.activeElement?.closest('.sidebar'))
+      document.getElementById('main-content')?.focus({ preventScroll: true })
+  }, [location.pathname])
   const current =
     navigation.find(
       (item) => item.to !== '/' && location.pathname.startsWith(item.to),
@@ -69,13 +77,17 @@ export function AppLayout() {
         Skip to content
       </a>
       <aside className="sidebar">
-        <Link to="/" className="brand" aria-label="FleetFlow home">
+        <Link
+          to="/"
+          className="brand"
+          aria-label={collapsed ? 'FleetFlow home' : undefined}
+        >
           <span className="brand-mark">
             <Route size={24} />
           </span>
           {!collapsed && (
             <span>
-              FleetFlow
+              FleetFlow{' '}
               <span className="brand-subtitle">LOGISTICS WORKSPACE</span>
             </span>
           )}
@@ -131,6 +143,7 @@ export function AppLayout() {
             <button
               className="icon-button mobile-toggle"
               aria-label="Open navigation"
+              ref={mobileTrigger}
               onClick={() => setMobileOpen(true)}
             >
               <Menu size={20} />
@@ -185,6 +198,7 @@ export function AppLayout() {
       </div>
       <Dialog
         open={mobileOpen}
+        returnFocusTo={mobileTrigger}
         onOpenChange={setMobileOpen}
         title="FleetFlow workspace"
         description="Navigate your logistics operations."

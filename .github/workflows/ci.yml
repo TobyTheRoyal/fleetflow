@@ -1,0 +1,122 @@
+name: FleetFlow quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend / Release and PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - run: python3 scripts/check-public-files.py
+      - run: python3 -m unittest discover -s scripts/tests
+      - run: dotnet tool restore
+      - run: dotnet restore backend/FleetFlow.slnx --locked-mode
+      - run: dotnet build backend/FleetFlow.slnx -c Release --no-restore
+      - run: dotnet format backend/FleetFlow.slnx --verify-no-changes --no-restore
+      # Integration fixtures own fresh PostgreSQL 18 containers/databases through
+      # Testcontainers; no shared service database or test credentials are needed.
+      - run: dotnet ef migrations has-pending-model-changes --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api --configuration Release --no-build
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ConnectionStrings__FleetFlow: Host=127.0.0.1;Database=fleetflow_model_check
+      - run: sh scripts/test-backend.sh
+      - run: python3 scripts/audit-dotnet.py
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-results
+          path: |
+            artifacts/backend/**/*.xml
+            artifacts/backend/**/*.trx
+          if-no-files-found: warn
+          retention-days: 7
+
+  frontend:
+    name: Frontend / Types, tests and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=moderate
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
+  e2e:
+    name: E2E / ${{ matrix.browser }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      # Global setup builds the real Release API image, starts an isolated Compose
+      # stack on loopback, applies migrations/seed and waits for DB/API readiness.
+      - run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          CHECK_API_CONTRACT: '1'
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-${{ matrix.browser }}
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Clean disposable E2E stack after interruption
+        if: always()
+        run: node tests/e2e/infra/cleanup.mjs

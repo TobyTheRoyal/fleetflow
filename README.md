@@ -1,187 +1,243 @@
 # FleetFlow
 
-FleetFlow is an independently designed personal portfolio project for logistics and fleet management, built to demonstrate C#/.NET backend architecture, PostgreSQL persistence, React/TypeScript, and automated testing.
+**Logistics operations and dispatch management — a C#/.NET and React portfolio project.**
 
-**Current milestone: M3 — Logistics operations UI.** The responsive React workspace provides a real dashboard, shipment search and pagination, creation/editing, dispatch assignment, lifecycle actions and immutable history, plus customer/driver/vehicle directories. All application data comes from the existing PostgreSQL-backed REST API. This unauthenticated environment is for local development only.
+FleetFlow helps a dispatcher create transport orders, assign eligible drivers and vehicles, follow delivery deadlines and investigate an immutable shipment timeline. It is an independently designed personal project with entirely fictional demo data.
 
-## Requirements
+The emphasis is on engineering behind a usable product: backend-enforced business rules, relational constraints, transactional history, concurrent reservation handling and a real PostgreSQL-backed operations interface.
 
-- .NET SDK **10.0.403** (stable .NET 10; `global.json` allows compatible patch updates).
-- Node.js **24.22.2** and npm (use `nvm install && nvm use` if nvm is available).
-- Docker Desktop with a running Linux container engine and Docker Compose v2.
-- Git; OpenSSL for the local environment setup helper.
+> **Local development only.** Authentication and authorization are not implemented. The demo actor is a label, not a verified identity. Do not expose the writable API publicly.
 
-Apple Silicon is supported using native ARM64 .NET, Node, and container images. No database server or `psql` installation is needed on the host. Package restores, image pulls, and the first browser install require network access.
+## What you can do
 
-## Quickstart
+- Monitor actual shipment counts, overdue deliveries, upcoming deadlines and recent orders.
+- Search and filter shipments in PostgreSQL, with URL-synchronized filters and pagination.
+- Create transport orders with full addresses, cargo details, decimal weights and schedules.
+- Assign an active driver and an available vehicle with sufficient payload capacity.
+- Progress a shipment through its lifecycle or cancel it where allowed.
+- Review persisted events, actual pickup/delivery timestamps and shipment versions.
+- Create customers and create/edit drivers and vehicles.
+- Use the responsive interface with keyboard navigation, accessible dialogs and actionable conflict/error states.
 
-Run these commands from the repository root:
+All application data comes from the REST API. There are no production-UI mock datasets, fabricated KPIs, GPS tracking or AI predictions.
+
+## Screenshots
+
+Captured from the actual application against a fresh, isolated PostgreSQL database containing the development seed. Dates and counts reflect capture time; they are not hardcoded into the UI.
+
+![FleetFlow operations dashboard with real database-backed shipment counts](docs/screenshots/dashboard.png)
+
+![Shipment search, status and customer filters, schedule, assignment and pagination](docs/screenshots/shipments.png)
+
+![Shipment detail with dispatch assignment, schedule and persisted event timeline](docs/screenshots/shipment-detail.png)
+
+<details>
+<summary>Fleet directory and mobile layout</summary>
+
+![Vehicle directory with real payload and availability data](docs/screenshots/vehicles.png)
+
+<img src="docs/screenshots/mobile-dashboard.png" width="390" alt="FleetFlow operations dashboard at a mobile viewport" />
+
+</details>
+
+[Reproduce the screenshots](docs/screenshots.md). Screenshots use only fictional seed records, never a developer's existing database.
+
+## Technology
+
+| Area | Implementation |
+| --- | --- |
+| Backend | C#, .NET 10 LTS, ASP.NET Core controllers, built-in DI/logging/OpenAPI |
+| Persistence | EF Core 10, Npgsql 10, PostgreSQL 18, versioned migrations |
+| Frontend | React, TypeScript, Vite, React Router, Tailwind CSS, shadcn-style Radix components, Lucide |
+| Forms/server state | React Hook Form, Zod, TanStack Query |
+| Tests | xUnit v3/Microsoft.Testing.Platform, real PostgreSQL Testcontainers, Vitest/RTL, Playwright and axe-core |
+| Delivery checks | Docker Compose, GitHub Actions, dependency audits, Cobertura and V8 coverage |
+
+Exact tool versions live in `global.json`, `.nvmrc`, `Directory.Packages.props` and the lockfiles. Updates are reviewed changes, not floating installs.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[React operations UI] -->|same-origin local Vite proxy| API[ASP.NET Core API]
+    API --> Application[Application services]
+    Application --> Domain[Domain model and rules]
+    API -->|DI composition| Infrastructure[EF Core infrastructure]
+    Infrastructure --> Application
+    Infrastructure --> Domain
+    Infrastructure --> DB[(PostgreSQL)]
+```
+
+FleetFlow is a **modular monolith**. One API and one database keep transactions, deployment and debugging understandable. Microservices and a message broker would add coordination costs without solving a current product problem.
+
+- **Domain** owns validated entities, status transitions and assignment eligibility, with no ASP.NET Core or EF dependency.
+- **Application** orchestrates use cases through focused persistence/query boundaries and `TimeProvider`.
+- **Infrastructure** implements EF mappings, SQL projections, PostgreSQL transactions, resource locks, migration and development seeding.
+- **API** handles HTTP binding, dedicated DTOs, validation, ProblemDetails and dependency injection. EF entities are never serialized as API contracts.
+
+The frontend is organized into dashboard, shipments, customers, drivers and vehicles features. TanStack Query owns server state; local React state holds dialogs and deliberate edit snapshots. OpenAPI-generated types provide compile-time contracts and Zod checks responses at runtime.
+
+[Architecture and decisions](docs/architecture.md) · [API v1 contract](docs/api/v1.md)
+
+## Domain and persistence
+
+```mermaid
+erDiagram
+    Customer ||--o{ Shipment : requests
+    Driver o|--o{ Shipment : assigned
+    Vehicle o|--o{ Shipment : assigned
+    Shipment ||--|{ ShipmentEvent : records
+```
+
+A shipment has one customer, two address values, a pickup/deadline interval, cargo weight/pallets and an optional driver/vehicle pair. Addresses are EF complex values stored in shipment columns. Foreign keys restrict deletion; unique constraints protect employee numbers, normalized plates and shipment numbers. Check constraints validate status, schedules, weights, versions and assignment consistency. History cannot be updated or deleted through the application; a PostgreSQL trigger also protects stored events.
+
+Weights use C# `decimal` and PostgreSQL `numeric(12,2)`. Timestamps are UTC instants. The interface explicitly uses Europe/Vienna, including DST-safe input conversion. The initial EF migration is exercised by actual PostgreSQL tests, including rollback/reapply and model consistency.
+
+## Shipment lifecycle and business rules
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Planned: eligible driver and vehicle
+    Draft --> Cancelled
+    Planned --> InTransit: revalidate and record pickup
+    Planned --> Cancelled
+    InTransit --> Delivered: record delivery
+    Delivered --> [*]
+    Cancelled --> [*]
+```
+
+Examples of enforced rules:
+
+- A 4,000 kg load cannot be assigned to a 3,500 kg van.
+- Inactive drivers and vehicles in Maintenance/Inactive cannot be assigned.
+- A driver or vehicle cannot serve overlapping Planned/InTransit shipments. Reservations use half-open `[pickup, deadline)` windows; adjacent transports are allowed.
+- Draft selections do not reserve resources; planning rechecks eligibility and overlap under database row locks.
+- Draft fields are editable; Planned permits only cargo-description edits. Assignment locks once transit starts.
+- Each successful status change and its single event commit atomically. Failed actions leave no partial state or duplicate events.
+- Shipment mutations require the expected `version`. Stale writes return HTTP 409; the UI requires explicit reload rather than overwriting another operator.
+
+This is a deliberately documented MVP simplification: multiple orders on one trip are not modeled. Shipment numbers use a database sequence with a UTC-year prefix; gaps are normal and the sequence does not reset each year.
+
+## Run locally
+
+Prerequisites: Docker Desktop/Engine with Compose v2, Node **24.22.2**, npm, a POSIX shell and OpenSSL. Install .NET SDK **10.0.403** for backend development/tests, and Python 3 for audit/report helpers. macOS Apple Silicon is verified; Linux is the configured CI target. Windows users should use WSL2 with Docker integration; native Windows setup is not verified.
+
+From a clone of this repository:
+
+```sh
+# If using nvm:
+nvm install
+nvm use
+
+# Generates an ignored password, builds/starts API + PostgreSQL,
+# applies the migration/fictional seed, installs frontend dependencies,
+# then runs Vite in the foreground.
+sh scripts/dev.sh
+```
+
+Open **[FleetFlow](http://127.0.0.1:5173)**. A host .NET SDK is not needed just to run the Docker-backed application.
+
+Prefer individual steps?
 
 ```sh
 sh scripts/setup-env.sh
-docker compose up --build -d
-docker compose run --rm --no-deps api --migrate --seed
-docker compose ps
-curl --fail http://127.0.0.1:5080/health
-curl --fail http://127.0.0.1:5080/health/ready
+docker compose -p fleetflow up --build -d --wait
+docker compose -p fleetflow run --rm --no-deps api --migrate --seed
+npm ci --prefix frontend
+npm run dev --prefix frontend
 ```
 
-The setup helper creates an ignored `.env` with a randomly generated database password and leaves an existing file unchanged. Alternatively, copy `.env.example` to `.env` and replace its password placeholder with `openssl rand -hex 24`. Never commit actual environment files or passwords.
+The seed is Development-only and idempotent. Rerunning does not erase existing demo edits or move dates. It refuses to overwrite an unrelated non-demo database. It creates 10 fictional customers, 12 drivers, 8 vehicles and 36 shipments with history. Deadline examples are relative to the first seed/reset time.
 
-Then start the frontend in another terminal:
-
-```sh
-cd frontend
-npm ci
-npm run dev
-```
-
-Open [FleetFlow](http://127.0.0.1:5173). The operations dashboard loads real data. The top-bar **Systems operational** menu retains the API/PostgreSQL health check and manual retry. On a new database, the migration/seed command above is required before opening the business pages. An existing initialized database is preserved.
-
-| Service | Default address |
+| Service | Local address |
 | --- | --- |
-| Frontend | <http://127.0.0.1:5173> |
-| API liveness | <http://127.0.0.1:5080/health> |
-| API/database readiness | <http://127.0.0.1:5080/health/ready> |
-| Development OpenAPI JSON | <http://127.0.0.1:5080/openapi/v1.json> |
+| UI | `http://127.0.0.1:5173` |
+| API liveness / database readiness | `http://127.0.0.1:5080/health` / `/health/ready` |
+| Development OpenAPI | `http://127.0.0.1:5080/openapi/v1.json` |
 | PostgreSQL | `127.0.0.1:5433` |
 
-Vite proxies `/health`, `/api`, and `/openapi` to the API. If you change `API_PORT` in `.env`, start Vite with the corresponding target, for example `API_PROXY_TARGET=http://127.0.0.1:5081 npm run dev`. These addresses are local configuration, not secrets. Optional frontend settings are documented in `frontend/.env.example`; copy it to the ignored `frontend/.env.local` only when overrides are needed. `VITE_API_BASE_URL` defaults to same-origin requests. Browser-exposed `VITE_*` settings must never contain credentials. `.env` is for Compose; the browser receives no database credentials.
+Compose publishes only on loopback. Vite proxies `/api`, `/health` and `/openapi`; no CORS relaxation or browser database credentials are needed. Configure Compose with the ignored root `.env`; optional frontend overrides are described in `frontend/.env.example`. Never place secrets in browser-exposed `VITE_*` values.
 
-Liveness returns `{"status":"Healthy"}` without requiring the database. Readiness returns the same payload when connected, or HTTP 503 with safe ProblemDetails containing `code: "dependency_unavailable"` and `traceId`. OpenAPI is unavailable outside Development.
-
-## Running the API directly for C# development
-
-Run only PostgreSQL in Compose, then start the API on the host. Stop a running Compose API first to free its port:
+Stop Vite with Ctrl+C and containers with `docker compose -p fleetflow down`; the database volume is preserved. To deliberately **delete only the development database** and rebuild fresh fictional data:
 
 ```sh
-docker compose stop api
-docker compose up -d postgres
-dotnet tool restore
-dotnet restore backend/FleetFlow.slnx --locked-mode
+sh scripts/reset-demo.sh --confirm
 ```
 
-In a local development shell, load the generated environment and export the ASP.NET Core connection setting:
+[Detailed setup, host .NET development and troubleshooting](docs/setup.md)
 
-```sh
-set -a
-. ./.env
-set +a
-export ConnectionStrings__FleetFlow="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Timeout=5;Command Timeout=5;GSS Encryption Mode=Disable"
-dotnet watch --project backend/src/FleetFlow.Api
-```
-
-The launch profile selects Development and `http://localhost:5080`. ASP.NET Core does not automatically read Compose's `.env`. For a persistent host-only setup, user secrets are another supported configuration source; do not put credentials in `appsettings.json`. Container communication uses `postgres:5432`, whereas host tools use the published localhost port.
-
-## REST API
-
-See the [API v1 guide](docs/api/v1.md) and [Development OpenAPI](http://127.0.0.1:5080/openapi/v1.json). After the schema is migrated, start with:
-
-```sh
-curl http://127.0.0.1:5080/api/v1/dashboard/summary
-curl 'http://127.0.0.1:5080/api/v1/shipments?page=1&pageSize=20'
-```
-
-All shipment mutations require the current version. Each collection is paged; JSON enums are named strings and timestamps include an explicit offset. The API is unauthenticated and must remain local-only.
-
-## Build, formatting, and tests
-
-From the repository root:
+## Develop and test
 
 ```sh
 dotnet tool restore
 dotnet restore backend/FleetFlow.slnx --locked-mode
-dotnet build backend/FleetFlow.slnx --no-restore
+dotnet build backend/FleetFlow.slnx -c Release --no-restore
 dotnet format backend/FleetFlow.slnx --verify-no-changes --no-restore
-dotnet test --solution backend/FleetFlow.slnx --no-restore
-```
+sh scripts/test-backend.sh
+python3 scripts/audit-dotnet.py
 
-The solution uses xUnit and Microsoft Testing Platform. Unit tests guard architecture boundaries, input validation, assignment eligibility, transitions, and deadline classification. Integration tests start an isolated PostgreSQL 18 container through Testcontainers; Docker must be running. They do not use, reset, or depend on the development database. They cover migrations, constraints, fictional seeds, atomic shipment/history writes, concurrent reservations, stale updates, and all M0 health/OpenAPI behavior. Each M1 test uses a fresh isolated database.
+npm ci --prefix frontend
+npm run check --prefix frontend
+npm audit --prefix frontend --audit-level=moderate
 
-If Testcontainers cannot find Docker Desktop's socket on macOS, use the active Docker context:
-
-```sh
-export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
-export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
-dotnet test --solution backend/FleetFlow.slnx --no-restore
-```
-
-If an automation sandbox blocks .NET's first-run files, set `DOTNET_CLI_HOME` to a writable temporary directory before running these commands. A normal terminal generally does not require this workaround.
-
-From `frontend/`:
-
-```sh
-npm ci
-npm run lint
-npm run format:check
-npm run typecheck
-npm run test -- --run
-npm run build
-```
-
-Vitest/React Testing Library cover dashboard data/states, shipment URL filters/pagination, forms, assignment eligibility/errors, contextual status actions, immutable timeline rendering, explicit stale-version recovery, API failures/cancellation and UTC/DST conversions. HTTP mocks exist only in tests. Playwright uses the real backend and PostgreSQL:
-
-```sh
-# Start Docker Desktop. The test runner creates its own isolated stack.
 cd frontend
-npx playwright install chromium
+npx playwright install --with-deps chromium firefox webkit
 npm run test:e2e
+# Full cross-browser matrix (also configured on Linux CI runners):
+npm run test:e2e:all
 ```
 
-Playwright creates the disposable `fleetflow-e2e` Compose project, applies the actual migration and seed, and starts Vite on **5174**, API on **5180**, and PostgreSQL on **5434**, all on loopback. It removes its own containers and test volume afterward. Development services/data on 5173/5080/5433 are untouched. Ports must be free; run one E2E invocation at a time. Each test provisions separate deterministic resources. A forcibly terminated run may require manually removing only the disposable project with `docker compose -p fleetflow-e2e down --volumes` (using a valid local `.env`), then deleting its abandoned temporary `fleetflow-e2e-*` directory. Never use that cleanup against the development project. Use `npm run format` or `dotnet format backend/FleetFlow.slnx` to apply formatting.
+The backend uses xUnit with Microsoft.Testing.Platform, **not VSTest**. Integration fixtures own fresh PostgreSQL 18 containers/databases, exercising real constraints, migration, SQL queries, transaction rollback and concurrent writes. No EF InMemory provider certifies database behavior.
 
-## Stop, inspect, and reset
+The default E2E command runs Chromium. `test:e2e:all` selects Chromium, Firefox and WebKit. Local browser-engine limitations and the unverified hosted CI status are recorded in the M4 verification report; a fully green cross-browser result is not claimed.
+
+Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback ports **5180/5434/5174**. It applies migration/seed, verifies real user journeys, audits accessibility and tears down only its own test volume. It does not use or reset the development database. Keep those ports free and run one invocation at a time; each invocation uses one worker and test-owned resources.
+
+Coverage reports are generated under `artifacts/backend/` and `frontend/coverage/`. Inspect coverage to find missing behaviors, not to chase an arbitrary percentage. `python3 scripts/coverage-summary.py` prints per-suite/per-assembly results. Generated API contracts, EF migration/snapshot files and the frontend bootstrap are excluded from line metrics; migration execution is still tested.
+
+[Testing guide and coverage scope](docs/testing.md) · [M4 actual verification results](docs/m4-verification.md)
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) defines checks for every pull request and push to `main`:
+
+- **Backend:** locked restore, Release build, formatting, migration consistency, PostgreSQL tests, coverage and NuGet audit.
+- **Frontend:** `npm ci`, lint, format, typecheck, component tests/coverage, production build and npm audit.
+- **E2E matrix:** Chromium, Firefox and WebKit against the actual isolated Docker stack, plus API type-drift and accessibility checks.
+
+The workflow uses read-only repository permissions, disabled checkout credential persistence, lockfile-based dependency caching and scoped diagnostic artifacts. It has no deployment step or deployment credentials. Dependabot configuration proposes reviewed dependency updates; it does not auto-merge them.
+
+**Hosted status:** workflow configuration is locally validated; successful GitHub-hosted execution must be confirmed after the changes are pushed. No green hosted-CI claim is implied. [CI design and validation](docs/ci.md)
+
+## API and demo walkthrough
+
+Open the Development OpenAPI document or [API guide](docs/api/v1.md) for request DTOs, responses, validation, filters, paging and `version` preconditions.
 
 ```sh
-docker compose logs --tail=100 api postgres
-docker compose exec postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
-docker compose down
+curl --fail http://127.0.0.1:5080/api/v1/dashboard/summary
+curl --fail 'http://127.0.0.1:5080/api/v1/shipments?status=Draft&page=1&pageSize=20'
 ```
 
-`docker compose down` preserves PostgreSQL's named volume. Stop Vite with Ctrl+C. To **delete all local FleetFlow database contents**, explicitly run:
+A practical interview demo: create a Graz–Vienna order, assign an eligible driver/vehicle, plan it, start transit and mark it delivered. Inspect the real event timeline and dashboard changes. Then demonstrate a stale version or overlapping reservation conflict and the corresponding automated test.
 
-```sh
-docker compose down --volumes
-docker compose up --build -d
-```
+## Security and limits
 
-M1 schema/data initialization is explicit. After building the API image, apply the migration and optionally seed fictional development data:
+This is production-oriented engineering **without production authorization or deployment readiness**. Anyone who can reach the API can currently mutate data. Local binding, Host filtering and CORS restrictions reduce exposure; they do not authenticate users.
 
-```sh
-docker compose run --rm --no-deps api --migrate --seed
-```
+The API returns safe ProblemDetails, avoids unfiltered unexpected-exception logs, rejects unknown request fields and adds no-store/nosniff headers. The API container runs as non-root with a read-only root filesystem, temporary scratch space, dropped capabilities and no privilege escalation. The local database role remains privileged for development migration/seed; it is not a production service account.
 
-PostgreSQL must already be running (`docker compose up -d postgres`). Use `--migrate` alone for an empty schema. Use `--seed` alone only after migration. These CLI operations exit after completion and reject environments other than Development. A normal API start never migrates or seeds automatically.
+Before public deployment: implement established authentication/authorization, verified actors, HTTPS/proxy and host policies, appropriate CSRF/session protections, request/rate limits, least-privilege database roles, secrets management, operational logging/retention, backups/recovery and a deployment security review. Audit results are time-specific, not proof of absence of vulnerabilities. [Security review and threat model](docs/security.md)
 
-For a host-run API, export `ConnectionStrings__FleetFlow` as shown above, then run:
+Other boundaries: English UI and fixed Vienna display timezone; offset pagination can shift under concurrent writes; master records use existing last-write-wins update semantics; license category is informational; no multi-shipment trips, GPS, pricing, invoicing or export APIs. Ambiguous write failures require checking the record/list before retrying; create requests do not yet have idempotency keys.
 
-```sh
-dotnet ef database update --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api
-dotnet run --project backend/src/FleetFlow.Api -- --seed
-```
+## Roadmap
 
-The launch profile selects Development for `dotnet run`. The seed is idempotent: rerunning preserves existing sample IDs, dates, versions, and history. It adds 10 fictional customers, 12 drivers, 8 vehicles, 36 shipments, and their history. Initial overdue/due-soon records are relative to the first seed; they are not moved at every restart. The seeder refuses an existing non-demo database instead of overwriting it. To regenerate relative sample dates, intentionally reset the local volume, restart services, and run initialization again. No real customer or driver data is included. Changing the database username/password in `.env` does not change credentials already stored in an existing volume; retain the original values or intentionally reset your local database.
+- **M0–M3:** foundation, domain/persistence, REST API and operations UI.
+- **M4:** quality review, CI configuration, security/accessibility checks and portfolio documentation.
+- **M5, only after approval:** established authentication/authorization and scoped live updates.
+- **Later optional work:** useful, explicitly labeled AI assistance or a driver-oriented mobile exploration, after the secured core is complete.
 
-## Troubleshooting
-
-- Docker errors: check `docker version` and `docker compose version`; start Docker Desktop if needed.
-- Port conflicts: change `POSTGRES_PORT`/`API_PORT` in `.env`; update the Vite proxy target if the API port changes.
-- Connection error: inspect `docker compose ps` and logs, then request `/health/ready`; `/health` alone does not certify PostgreSQL connectivity.
-- NuGet/npm/image download errors: check network, proxy, and trusted certificate configuration. Do not disable TLS validation.
-- Node engine errors: use the version declared in `.nvmrc`, including in automated terminals.
-- `npm run preview` serves static build output and does not provide the development API proxy; use `npm run dev` for the documented local application setup.
-
-## Structure and roadmap
-
-See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), the [M0 verification report](docs/m0-verification.md), and [M1 domain/persistence decisions](docs/decisions/0002-domain-persistence.md), the [M1 verification report](docs/m1-verification.md), the [M2 verification report](docs/m2-verification.md), and the [M3 UI guide and verification](docs/m3-verification.md).
-
-- **M0:** environment, four backend layers, health checks, frontend foundation, tests.
-- **M1:** domain rules, relational schema, migrations, fictional seeds, transactions, concurrency.
-- **M2:** business REST APIs, filtering, dashboard aggregation, API integration coverage.
-- **M3:** database-backed frontend workflows and end-to-end business tests.
-- **M4:** expanded quality checks, GitHub Actions CI, documentation, screenshots, portfolio packaging.
-- Optional later: established authentication, SignalR, scoped AI assistance, and mobile exploration.
-
-M3 stops at the working local operations UI and its tests. Authentication, live push updates, AI and public deployment remain outside this milestone. No backend contract or database migration was changed. CI/portfolio packaging remain M4 work. Business API requests and response/error examples are documented in the [API v1 guide](docs/api/v1.md).
+Private planning/instruction documents and actual credentials are excluded from Git and Docker build contexts. Nothing is publicly deployed by this repository.
 
 Licensed under [MIT](LICENSE).

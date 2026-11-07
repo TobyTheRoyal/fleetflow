@@ -60,8 +60,14 @@ erDiagram
 
 Each shipment has one required customer and an optional driver/vehicle pair. Addresses are EF complex values stored as columns on Shipments. All foreign keys restrict deletion; history is immutable. Database indexes support shipment numbers, customers, resource lookups, status/deadline, creation order, and shipment/event time.
 
-## M3 boundary
+## Current milestone boundary
 
 M1 implements entities, migration, constraints, fictional seeds, domain/application validation, transactional event history, and PostgreSQL concurrency tests. Shipment versions protect stale updates; row locks coordinate resource reservations across shipments. See [ADR 0002](decisions/0002-domain-persistence.md) for semantics and trade-offs.
 
-M2 adds read projections, SQL dashboard aggregates, bounded pagination, API contracts and HTTP/PostgreSQL tests. Fleet updates share the reservation locks and transaction implementation. See [ADR 0003](decisions/0003-rest-api.md) and the [API guide](api/v1.md). M3 consumes this contract without backend changes and verifies complete workflows through HTTP and the browser against a disposable Docker stack. The original health/readiness functionality remains available in the top bar. CI/portfolio packaging remain M4 work.
+M2 adds read projections, SQL dashboard aggregates, bounded pagination, API contracts and HTTP/PostgreSQL tests. Fleet updates share the reservation locks and transaction implementation. See [ADR 0003](decisions/0003-rest-api.md) and the [API guide](api/v1.md). M3 consumes this contract without backend changes and verifies complete workflows through HTTP and the browser against a disposable Docker stack. The original health/readiness functionality remains available in the top bar. M4 adds the quality checks and portfolio documentation described below.
+
+## M4 quality boundary
+
+M4 retains the modular monolith and existing wire contracts. It adds Release/coverage/real-PostgreSQL checks, least-privilege GitHub Actions configuration, safe application error-log metadata, non-cacheable/nosniff API responses, hardened local API container settings, query/error recovery tests and reproducible browser/accessibility verification. PostgreSQL concurrency failures are recognized through provider/EF wrapper chains and remain explicit 409 conflicts with atomic rollback.
+
+Frontend changes address actual contrast, label/focus, pagination recovery and ambiguous-write issues. Code remains feature-based; no global client-state store, new business endpoint or architectural framework was introduced. See the [M4 review](m4-review.md), [security review](security.md), [CI design](ci.md) and [actual verification report](m4-verification.md). Authentication, SignalR, AI and public deployment remain outside M4.
