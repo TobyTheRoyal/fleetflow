@@ -1,6 +1,6 @@
 # FleetFlow architecture
 
-FleetFlow is an independently designed personal portfolio project for logistics operations. M2 exposes the M1 domain and PostgreSQL persistence through versioned controller endpoints. Dashboard statistics are SQL-backed. Authentication and frontend business workflows remain later milestones.
+FleetFlow is an independently designed personal portfolio project for logistics operations. M2 exposes the M1 domain and PostgreSQL persistence through versioned controller endpoints. Dashboard statistics are SQL-backed. M3 adds a responsive, real-data operations frontend; authentication remains a later milestone.
 
 ## Backend boundaries
 
@@ -14,9 +14,9 @@ flowchart TD
   Infrastructure --> PostgreSQL[(PostgreSQL)]
 ```
 
-Arrows represent project references. API references Infrastructure to compose dependency injection at startup. Controllers handle HTTP; Application will orchestrate use cases; Domain will own business invariants; Infrastructure implements persistence. Domain contains validated entities and rules. Application contains shipment command orchestration and a focused persistence interface.
+Arrows represent project references. API references Infrastructure to compose dependency injection at startup. Controllers handle HTTP; Application orchestrates use cases; Domain owns business invariants; Infrastructure implements persistence. Domain contains validated entities and rules. Application contains shipment command orchestration and a focused persistence interface.
 
-Use controllers consistently for application HTTP endpoints. Health endpoints also use a controller. First-party ASP.NET Core OpenAPI is exposed only in Development. No generic repository, mediator framework, event bus, or custom unit-of-work abstraction is introduced. EF Core's DbContext provides change tracking and the persistence unit of work. DTOs will be separate from entities.
+Use controllers consistently for application HTTP endpoints. Health endpoints also use a controller. First-party ASP.NET Core OpenAPI is exposed only in Development. No generic repository, mediator framework, event bus, or custom unit-of-work abstraction is introduced. EF Core's DbContext provides change tracking and the persistence unit of work. DTOs remain separate from entities.
 
 The DbContext uses EF Core 10 and the Npgsql 10 provider. A health check exercises its actual PostgreSQL connection; it does not create a schema. M1 provides an initial versioned migration and explicit development-only fictional seeds. Never use EnsureCreated as a substitute for migrations. Integration tests use isolated real PostgreSQL 18 containers, independent of the development database.
 
@@ -32,9 +32,15 @@ Problems include a machine-readable `code` and request `traceId`. Unexpected exc
 
 ## Frontend
 
-React Router and TanStack Query providers are registered at the application boundary. TanStack Query owns the readiness request and retry state. The English M0 screen shows only actual infrastructure connectivity, with loading, error, retry, and success states. No fake shipments or metrics are displayed.
+React Router defines lazy-loaded dashboard, shipment list/new/detail/edit, customer, driver and vehicle pages. A persistent responsive workspace shell supplies navigation, search and readiness feedback. Page-level Suspense and an error boundary provide recoverable loading/render failures.
 
-Tailwind CSS and a shadcn/ui-compatible Radix button establish the UI foundation. `components.json` and the `@/` alias support subsequent shadcn components. Features will be organized by dashboard, shipments, customers, drivers, and vehicles when implemented. Forms and generated business API types belong to later milestones.
+`frontend/src/features/` owns feature pages, shipment forms, assignment/status dialogs and timeline. `components/ui` supplies the existing shadcn-style Button and Radix Dialog; `components/shared` supplies fields, states, pagination, tables/directory composition and page framing. `lib` owns typed HTTP transport, query helpers, error mapping and date conversion. No global client-state store is introduced.
+
+`types/api.generated.ts` is generated from the actual Development OpenAPI document. Public aliases and Zod response schemas at the transport boundary detect incompatible responses at runtime. React Hook Form/Zod handle input ergonomics; domain and transaction rules remain authoritative in .NET. See [the M3 guide](m3-verification.md) for regeneration and timezone decisions.
+
+TanStack Query owns all server state. Lists use server-side filters and bounded pagination; shipment filters/paging live in the URL. Mutations invalidate related shipment/history/dashboard/resource queries. Shipment writes keep the version captured when editing began; background fetches do not silently advance it. HTTP 409 `stale_version` blocks resubmission until an explicit successful refresh. No optimistic mutation or automatic write retry can overwrite another operator's changes.
+
+All schedule inputs and displays use Europe/Vienna. Temporal converts to UTC, rejects ambiguous/nonexistent clock-change times, and preserves unchanged timestamps at their original precision. The API continues to store UTC instants and PostgreSQL decimal weights. Production UI contains no mock data.
 
 ## Development and versioning
 
@@ -54,8 +60,8 @@ erDiagram
 
 Each shipment has one required customer and an optional driver/vehicle pair. Addresses are EF complex values stored as columns on Shipments. All foreign keys restrict deletion; history is immutable. Database indexes support shipment numbers, customers, resource lookups, status/deadline, creation order, and shipment/event time.
 
-## M2 and next boundary
+## M3 boundary
 
 M1 implements entities, migration, constraints, fictional seeds, domain/application validation, transactional event history, and PostgreSQL concurrency tests. Shipment versions protect stale updates; row locks coordinate resource reservations across shipments. See [ADR 0002](decisions/0002-domain-persistence.md) for semantics and trade-offs.
 
-M2 adds read projections, SQL dashboard aggregates, bounded pagination, API contracts and HTTP/PostgreSQL tests. Fleet updates share the reservation locks and transaction implementation. See [ADR 0003](decisions/0003-rest-api.md) and the [API guide](api/v1.md). Frontend workflows follow in M3 and CI/portfolio packaging in M4. The M0 screen and health routes remain unchanged.
+M2 adds read projections, SQL dashboard aggregates, bounded pagination, API contracts and HTTP/PostgreSQL tests. Fleet updates share the reservation locks and transaction implementation. See [ADR 0003](decisions/0003-rest-api.md) and the [API guide](api/v1.md). M3 consumes this contract without backend changes and verifies complete workflows through HTTP and the browser against a disposable Docker stack. The original health/readiness functionality remains available in the top bar. CI/portfolio packaging remain M4 work.

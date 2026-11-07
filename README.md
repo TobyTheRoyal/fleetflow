@@ -2,7 +2,7 @@
 
 FleetFlow is an independently designed personal portfolio project for logistics and fleet management, built to demonstrate C#/.NET backend architecture, PostgreSQL persistence, React/TypeScript, and automated testing.
 
-**Current milestone: M2 — REST API.** Versioned controller endpoints expose the complete shipment lifecycle, fleet/customer management, server-side filtering and real dashboard statistics. The existing frontend remains the M0 infrastructure screen; frontend workflows start in M3. This unauthenticated environment is for local development only.
+**Current milestone: M3 — Logistics operations UI.** The responsive React workspace provides a real dashboard, shipment search and pagination, creation/editing, dispatch assignment, lifecycle actions and immutable history, plus customer/driver/vehicle directories. All application data comes from the existing PostgreSQL-backed REST API. This unauthenticated environment is for local development only.
 
 ## Requirements
 
@@ -20,6 +20,7 @@ Run these commands from the repository root:
 ```sh
 sh scripts/setup-env.sh
 docker compose up --build -d
+docker compose run --rm --no-deps api --migrate --seed
 docker compose ps
 curl --fail http://127.0.0.1:5080/health
 curl --fail http://127.0.0.1:5080/health/ready
@@ -35,7 +36,7 @@ npm ci
 npm run dev
 ```
 
-Open [FleetFlow](http://127.0.0.1:5173). The connection card checks the real API and PostgreSQL. A healthy connection is reported only after the dependency check succeeds.
+Open [FleetFlow](http://127.0.0.1:5173). The operations dashboard loads real data. The top-bar **Systems operational** menu retains the API/PostgreSQL health check and manual retry. On a new database, the migration/seed command above is required before opening the business pages. An existing initialized database is preserved.
 
 | Service | Default address |
 | --- | --- |
@@ -45,7 +46,7 @@ Open [FleetFlow](http://127.0.0.1:5173). The connection card checks the real API
 | Development OpenAPI JSON | <http://127.0.0.1:5080/openapi/v1.json> |
 | PostgreSQL | `127.0.0.1:5433` |
 
-Vite proxies `/health`, `/api`, and `/openapi` to the API. If you change `API_PORT` in `.env`, start Vite with the corresponding target, for example `API_PROXY_TARGET=http://127.0.0.1:5081 npm run dev`. These are public addresses, not secrets. `.env` is for Compose; the browser receives no database credentials.
+Vite proxies `/health`, `/api`, and `/openapi` to the API. If you change `API_PORT` in `.env`, start Vite with the corresponding target, for example `API_PROXY_TARGET=http://127.0.0.1:5081 npm run dev`. These addresses are local configuration, not secrets. Optional frontend settings are documented in `frontend/.env.example`; copy it to the ignored `frontend/.env.local` only when overrides are needed. `VITE_API_BASE_URL` defaults to same-origin requests. Browser-exposed `VITE_*` settings must never contain credentials. `.env` is for Compose; the browser receives no database credentials.
 
 Liveness returns `{"status":"Healthy"}` without requiring the database. Readiness returns the same payload when connected, or HTTP 503 with safe ProblemDetails containing `code: "dependency_unavailable"` and `traceId`. OpenAPI is unavailable outside Development.
 
@@ -118,16 +119,16 @@ npm run test -- --run
 npm run build
 ```
 
-Vitest/React Testing Library cover connection loading, success, failure/retry, and invalid API responses. Frontend tests mock HTTP intentionally; the browser smoke test uses the actual API and PostgreSQL:
+Vitest/React Testing Library cover dashboard data/states, shipment URL filters/pagination, forms, assignment eligibility/errors, contextual status actions, immutable timeline rendering, explicit stale-version recovery, API failures/cancellation and UTC/DST conversions. HTTP mocks exist only in tests. Playwright uses the real backend and PostgreSQL:
 
 ```sh
-# First start PostgreSQL and API using the quickstart.
+# Start Docker Desktop. The test runner creates its own isolated stack.
 cd frontend
 npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright starts Vite automatically if it is not already running. Use `npm run format` or `dotnet format backend/FleetFlow.slnx` to apply formatting.
+Playwright creates the disposable `fleetflow-e2e` Compose project, applies the actual migration and seed, and starts Vite on **5174**, API on **5180**, and PostgreSQL on **5434**, all on loopback. It removes its own containers and test volume afterward. Development services/data on 5173/5080/5433 are untouched. Ports must be free; run one E2E invocation at a time. Each test provisions separate deterministic resources. A forcibly terminated run may require manually removing only the disposable project with `docker compose -p fleetflow-e2e down --volumes` (using a valid local `.env`), then deleting its abandoned temporary `fleetflow-e2e-*` directory. Never use that cleanup against the development project. Use `npm run format` or `dotnet format backend/FleetFlow.slnx` to apply formatting.
 
 ## Stop, inspect, and reset
 
@@ -172,7 +173,7 @@ The launch profile selects Development for `dotnet run`. The seed is idempotent:
 
 ## Structure and roadmap
 
-See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), the [M0 verification report](docs/m0-verification.md), and [M1 domain/persistence decisions](docs/decisions/0002-domain-persistence.md), the [M1 verification report](docs/m1-verification.md), and the [M2 verification report](docs/m2-verification.md).
+See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/0001-m0-foundation.md), the [M0 verification report](docs/m0-verification.md), and [M1 domain/persistence decisions](docs/decisions/0002-domain-persistence.md), the [M1 verification report](docs/m1-verification.md), the [M2 verification report](docs/m2-verification.md), and the [M3 UI guide and verification](docs/m3-verification.md).
 
 - **M0:** environment, four backend layers, health checks, frontend foundation, tests.
 - **M1:** domain rules, relational schema, migrations, fictional seeds, transactions, concurrency.
@@ -181,6 +182,6 @@ See [architecture](docs/architecture.md), [foundation decisions](docs/decisions/
 - **M4:** expanded quality checks, GitHub Actions CI, documentation, screenshots, portfolio packaging.
 - Optional later: established authentication, SignalR, scoped AI assistance, and mobile exploration.
 
-GitHub Actions, screenshots, a business ER diagram, public deployment, and demo credentials are not provided in M0. No new frontend pages, authentication, AI, paid APIs, or additional services have been introduced. Business API requests and response/error examples are documented in the [API v1 guide](docs/api/v1.md).
+M3 stops at the working local operations UI and its tests. Authentication, live push updates, AI and public deployment remain outside this milestone. No backend contract or database migration was changed. CI/portfolio packaging remain M4 work. Business API requests and response/error examples are documented in the [API v1 guide](docs/api/v1.md).
 
 Licensed under [MIT](LICENSE).
