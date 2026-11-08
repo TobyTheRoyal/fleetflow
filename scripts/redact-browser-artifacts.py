@@ -9,8 +9,9 @@ import sys
 import zipfile
 
 PASSWORD = re.compile(r'Ff!7[a-fA-F0-9]{32,}')
+HUB_TOKEN = re.compile(r'(/hubs/logistics\?[^\s"<>]*?\bid=)[^&#\s"<>\\]+')
 EMBEDDED = re.compile(r'data:application/zip;base64,([A-Za-z0-9+/=]+)')
-SENSITIVE = {'password', 'currentpassword', 'newpassword', 'initialpassword', 'authorization', 'cookie', 'set-cookie', 'x-csrf-token', 'token', 'requesttoken'}
+SENSITIVE = {'password', 'currentpassword', 'newpassword', 'initialpassword', 'authorization', 'cookie', 'set-cookie', 'x-csrf-token', 'token', 'requesttoken', 'connectiontoken', 'accesstoken'}
 
 def collect(value, secrets):
     if isinstance(value, dict):
@@ -37,6 +38,7 @@ def objects(text):
 
 def scrub(text, secrets):
     text = PASSWORD.sub('[REDACTED]', text)
+    text = HUB_TOKEN.sub(r'\1[REDACTED]', text)
     for secret in sorted((s for s in secrets if len(s) >= 8), key=len, reverse=True):
         text = text.replace(secret, '[REDACTED]')
     return EMBEDDED.sub(lambda match: 'data:application/zip;base64,' + base64.b64encode(archive(base64.b64decode(match[1]), secrets)).decode(), text)

@@ -75,3 +75,7 @@ Frontend changes address actual contrast, label/focus, pagination recovery and a
 ## M5a identity boundary
 
 Infrastructure now owns Identity users/EF stores, additive schema, administrative transactions and Development-only user provisioning. API owns cookie authentication, CSRF filters and authorization policies. User administration controllers remain thin; shipment services and transaction rules are unchanged. Data Protection keys persist in PostgreSQL for restart continuity. React has a separate auth feature with guarded routes, same-account draft recovery and role-aware actions. See [authentication](authentication.md) and [M5a verification](m5a-verification.md). SignalR remains outside this milestone.
+
+## M5b real-time boundary
+
+The existing EF transaction captures minimal change hints and invokes an Application notification port only after commit. The API implements it through a typed SignalR Hub; Domain and REST behavior remain unchanged. Notification failures cannot undo persistence. An instance-local connection registry revalidates Identity accounts/stamps/expiry before broadcast and every five seconds. React's separate realtime feature invalidates TanStack queries, retains form snapshots, recovers after reconnect and periodically reconciles best-effort delivery through REST. No database schema changes or additional services are needed. See [real-time contract and security](realtime.md) and [M5b verification](m5b-verification.md).

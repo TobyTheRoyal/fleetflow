@@ -1946,3 +1946,27 @@ h1 {
     display: none;
   }
 }
+
+.realtime-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+}
+.realtime-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+  flex-shrink: 0;
+}
+.realtime-status.live .realtime-dot {
+  background: #15803d;
+}
+@media (max-width: 640px) {
+  .realtime-status > span:last-child {
+    display: none;
+  }
+}

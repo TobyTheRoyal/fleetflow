@@ -46,3 +46,7 @@ See [the stabilization report](m41-verification.md) for the exact local results 
 ## M5a authenticated verification
 
 The M0–M4.1 five-job hosted baseline was reported green by the project owner. The M5a changes require a new hosted run after review/commit/push; none was triggered by the implementation agent. The existing five-job matrix remains. E2E initializes Identity accounts, uses real cookie/CSRF authentication and obtains session state in private temporary files. Before upload, an always-run sanitization step processes traces, embedded report archives and run logs. Upload occurs only if this step succeeds. Review this synthetic-test policy again before real credentials/customer data are introduced. See [M5a results](m5a-verification.md).
+
+## M5b verification
+
+The five existing jobs automatically include real PostgreSQL/SignalR integration tests and the new multi-user Playwright scenarios in every browser project. No extra service, port exposure, deployment, credential or workflow permission is needed. Vite's same-origin WebSocket proxy connects to the job's isolated API; generated managed accounts remain private temporary test data. Sanitize authenticated traces as before; M5b additionally redacts SignalR connection tokens from negotiation bodies and Hub transport URLs. Local results and exact hosted follow-up steps are recorded in [M5b verification](m5b-verification.md); no hosted M5b result is inferred from a previous green baseline.

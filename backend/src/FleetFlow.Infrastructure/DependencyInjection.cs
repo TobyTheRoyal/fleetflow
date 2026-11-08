@@ -1,5 +1,6 @@
 using FleetFlow.Application.Fleet;
 using FleetFlow.Application.Queries;
+using FleetFlow.Application.Realtime;
 using FleetFlow.Application.Shipments;
 using FleetFlow.Infrastructure.Fleet;
 using FleetFlow.Infrastructure.Health;
@@ -11,6 +12,7 @@ using FleetFlow.Infrastructure.Shipments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FleetFlow.Infrastructure;
 
@@ -27,6 +29,7 @@ public static class DependencyInjection
 
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
         services.AddSingleton(TimeProvider.System);
+        services.TryAddSingleton<ILogisticsNotifier, NullLogisticsNotifier>();
         services.AddScoped<IShipmentStore, EfShipmentStore>();
         services.AddScoped<ShipmentService>();
         services.AddScoped<EfTransaction>();

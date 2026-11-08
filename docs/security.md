@@ -1,6 +1,6 @@
 # Security review — local portfolio application
 
-Updated for M5a on 2026-11-07. [Identity/session design](authentication.md) documents the current controls. This is an engineering review with automated checks, not a penetration test or production security certification. FleetFlow must stay local until authentication/authorization and deployment controls are implemented and verified.
+Updated for M5b on 2026-11-08. [Identity/session design](authentication.md) documents the current controls. This is an engineering review with automated checks, not a penetration test or production security certification. FleetFlow must stay local until authentication/authorization and deployment controls are implemented and verified.
 
 ## Trust boundary
 
@@ -48,8 +48,16 @@ The privacy helper checks public Git candidates for private instruction/configur
 8. Container/base-image vulnerability scans, reviewed runtime patching and deployment-specific hardening.
 9. Security and accessibility reviews with real deployment assumptions, plus protected CI checks and secret scanning.
 
-M5a adds Identity authentication, roles, CSRF, lockout/rate limits, password change and immediate account/session revocation. SignalR, AI, public deployment and mobile applications remain absent. Shipment-only Version semantics and absence of create-request idempotency keys remain documented design limits, not hidden security guarantees.
+M5a adds Identity authentication, roles, CSRF, lockout/rate limits, password change and immediate account/session revocation. M5b adds secured SignalR notifications; AI, public deployment and mobile applications remain absent. Shipment-only Version semantics and absence of create-request idempotency keys remain documented design limits, not hidden security guarantees.
 
 ## M5a diagnostic artifacts
 
 Authenticated browser traces can contain passwords and cookies. CI now sanitizes synthetic trace archives, embedded HTML report archives and logs before upload, and skips upload if sanitization fails. Generated fixture credentials and cookie states remain outside artifact paths and are deleted at teardown. This is scoped synthetic-test redaction, not a universal DLP guarantee. Data Protection keys reside unencrypted in the development database; key encryption and least-privilege access are deployment blockers.
+
+## M5b transport review
+
+The Hub requires the logistics read role, uses existing cookie authentication and rejects foreign/null origins. Unsafe transport requests require synchronizer CSRF tokens. WebSocket upgrades require an explicit approved Origin; no wildcard credentialed CORS or URL access tokens are introduced. Clients cannot mutate logistics through Hub methods. Revalidation before delivery and five-second idle sweeps close revoked connections; ticket expiry also closes transports. Payloads contain identifiers/type/version/time only. Detailed server errors and client transport logs are disabled. See [real-time security and limitations](realtime.md#authentication-and-browser-security).
+
+Local single-instance memory, a revocation/send race for in-flight hints, best-effort delivery, absence of connection-level production abuse budgets and deployment-specific transport/proxy testing remain limits. The authoritative REST API and expected-Version checks remain mandatory. No public exposure is approved.
+
+SignalR negotiation connection tokens and Hub URL `id` values are now included in authenticated artifact redaction, with a regression test. They must not be shared as ordinary diagnostic identifiers.

@@ -78,8 +78,12 @@ Real Identity cookies and CSRF are used by HTTP and E2E tests; no test authentic
 
 E2E credentials/states are generated in a mode-restricted temporary directory outside the repository and removed at teardown. Fixtures check cached sessions and use the real login again if expired, rather than extending the server lifetime. CI sanitizes synthetic traces, embedded HTML report archives and run logs before upload; upload is gated on successful sanitization. Review this policy again before introducing real customer data, arbitrary password formats, authenticated screenshots with sensitive fields or third-party diagnostics.
 
-Authentication does not constitute deployment approval. TLS/proxy policies, protected key-ring encryption, least-privilege DB roles, MFA/recovery, production administrator bootstrap, distributed rate limiting, backup/restore, observability/retention and deployment testing remain required. No public deployment or SignalR/AI/mobile implementation is included.
+Authentication does not constitute deployment approval. TLS/proxy policies, protected key-ring encryption, least-privilege DB roles, MFA/recovery, production administrator bootstrap, distributed rate limiting, backup/restore, observability/retention and deployment testing remain required. No public deployment, AI or mobile implementation is included. M5b adds authenticated SignalR as described below.
 
 ## ASP.NET Core concepts
 
 `UserManager` owns user/password/stamp operations, `SignInManager` issues framework cookie principals, and roles become protected claims checked by authorization policies. A security stamp invalidates previously issued tickets without keeping a custom session-token table. Antiforgery is separate from authentication: an authenticated cookie alone does not prove that a browser user intended a mutation. Data Protection authenticates/encrypts the cookie payload; password hashing protects stored passwords and serves a different purpose. EF migrations evolve schema independently of login/startup, and the DI-scoped Identity store shares the existing transaction-capable DbContext.
+
+## M5b established connections
+
+[The real-time layer](realtime.md) reuses these cookies, roles and CSRF tokens. SignalR caches a connection principal; per-HTTP stamp validation alone cannot revoke an idle WebSocket. The server therefore validates registered sessions before delivery and on a five-second sweep, and enables transport closure at ticket expiry. Account deactivation, logout and password stamp rotation revoke existing sockets as well as subsequent REST requests. An already-in-flight minimal hint can race with revocation; REST always reauthenticates. Client disconnect/401 handling reuses the existing unsaved-form-preserving session modal.

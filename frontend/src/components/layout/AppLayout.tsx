@@ -1,3 +1,4 @@
+import { RealtimeStatus } from '@/features/realtime/RealtimeStatus'
 import { PasswordDialog } from '@/features/auth/PasswordDialog'
 import { useSession } from '@/features/auth/context'
 import { toast } from 'sonner'
@@ -192,6 +193,7 @@ export function AppLayout() {
               <kbd>⌘ K</kbd>
             </form>
             <SystemHealth />
+            <RealtimeStatus />
             <Button
               variant="ghost"
               size="sm"

@@ -1,7 +1,9 @@
 using System.Text.Json.Serialization;
 using FleetFlow.Api.Errors;
 using FleetFlow.Api.OpenApi;
+using FleetFlow.Api.Realtime;
 using FleetFlow.Api.Security;
+using FleetFlow.Application.Realtime;
 using FleetFlow.Infrastructure;
 using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
@@ -53,6 +55,14 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddSessionSecurity(builder.Environment.IsDevelopment());
 builder.Services.AddScoped<DevelopmentUsers>();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = false;
+    options.MaximumReceiveMessageSize = 4096;
+});
+builder.Services.AddSingleton<LiveConnections>();
+builder.Services.AddHostedService<LiveSessionMonitor>();
+builder.Services.AddSingleton<ILogisticsNotifier, SignalRLogisticsNotifier>();
 var app = builder.Build();
 
 if (migrate || seed || seedUsers)
@@ -81,10 +91,12 @@ app.Use(async (context, next) =>
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+app.UseWebSockets();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(HubSecurity.GuardAsync);
 
 if (app.Environment.IsDevelopment())
 {
@@ -92,6 +104,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+app.MapHub<LogisticsHub>(HubSecurity.Path, options => options.CloseOnAuthenticationExpiration = true);
 app.Run();
 
 // Allows WebApplicationFactory to start the real application in integration tests.

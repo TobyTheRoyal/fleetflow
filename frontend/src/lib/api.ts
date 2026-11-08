@@ -35,7 +35,7 @@ let csrf: Promise<string> | undefined
 export function resetCsrf() {
   csrf = undefined
 }
-async function csrfToken() {
+export async function csrfToken() {
   csrf ??= fetch(apiBase + '/api/v1/auth/csrf', {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },

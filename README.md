@@ -12,6 +12,7 @@ The emphasis is on engineering behind a usable product: backend-enforced busines
 
 - Sign in with a managed account, use role-appropriate operations and change your password.
 - Administrators can provision users and revoke access immediately.
+- Collaborate through authenticated SignalR updates, with reconnect recovery and retained unsaved edits.
 - Monitor actual shipment counts, overdue deliveries, upcoming deadlines and recent orders.
 - Search and filter shipments in PostgreSQL, with URL-synchronized filters and pagination.
 - Create transport orders with full addresses, cargo details, decimal weights and schedules.
@@ -49,6 +50,7 @@ Captured from the actual application against a fresh, isolated PostgreSQL databa
 | Area | Implementation |
 | --- | --- |
 | Backend | C#, .NET 10 LTS, ASP.NET Core controllers, built-in DI/logging/OpenAPI |
+| Live updates | ASP.NET Core SignalR, Identity cookies, typed invalidation hints and REST recovery |
 | Persistence | EF Core 10, Npgsql 10, PostgreSQL 18, versioned migrations |
 | Frontend | React, TypeScript, Vite, React Router, Tailwind CSS, shadcn-style Radix components, Lucide |
 | Forms/server state | React Hook Form, Zod, TanStack Query |
@@ -62,6 +64,7 @@ Exact tool versions live in `global.json`, `.nvmrc`, `Directory.Packages.props` 
 ```mermaid
 flowchart LR
     Browser[React operations UI] -->|same-origin local Vite proxy| API[ASP.NET Core API]
+    API -->|SignalR hints after commit| Browser
     API --> Application[Application services]
     Application --> Domain[Domain model and rules]
     API -->|DI composition| Infrastructure[EF Core infrastructure]
@@ -79,7 +82,7 @@ FleetFlow is a **modular monolith**. One API and one database keep transactions,
 
 The frontend is organized into dashboard, shipments, customers, drivers and vehicles features. TanStack Query owns server state; local React state holds dialogs and deliberate edit snapshots. OpenAPI-generated types provide compile-time contracts and Zod checks responses at runtime.
 
-[Architecture and decisions](docs/architecture.md) · [API v1 contract](docs/api/v1.md)
+[Architecture and decisions](docs/architecture.md) · [API v1 contract](docs/api/v1.md) · [Real-time design](docs/realtime.md)
 
 ## Domain and persistence
 
@@ -199,7 +202,7 @@ Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback po
 
 Coverage reports are generated under `artifacts/backend/` and `frontend/coverage/`. Inspect coverage to find missing behaviors, not to chase an arbitrary percentage. `python3 scripts/coverage-summary.py` prints per-suite/per-assembly results. Generated API contracts, EF migration/snapshot files and the frontend bootstrap are excluded from line metrics; migration execution is still tested.
 
-[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md) · [M5a authentication verification](docs/m5a-verification.md)
+[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md) · [M5a authentication verification](docs/m5a-verification.md) · [M5b real-time verification](docs/m5b-verification.md)
 
 ## Continuous integration
 
@@ -240,7 +243,8 @@ Other boundaries: English UI and fixed Vienna display timezone; offset paginatio
 - **M4:** quality review, CI configuration, security/accessibility checks and portfolio documentation.
 - **M4.1:** browser toolchain stabilization, repeated accessibility/interaction checks and CI diagnostics; five hosted baseline jobs reported green by the project owner.
 - **M5a:** Identity authentication, cookie/CSRF sessions, role policies, managed accounts and verified audit actors.
-- **Later, only after approval:** scoped live updates and further deployment hardening.
+- **M5b:** authenticated SignalR notifications, session revalidation, live query refresh and multi-user tests.
+- **Later, only after approval:** further deployment hardening.
 - **Later optional work:** useful, explicitly labeled AI assistance or a driver-oriented mobile exploration, after the secured core is complete.
 
 Private planning/instruction documents and actual credentials are excluded from Git and Docker build contexts. Nothing is publicly deployed by this repository.

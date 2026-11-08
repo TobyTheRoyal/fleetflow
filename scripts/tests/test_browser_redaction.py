@@ -31,3 +31,22 @@ class BrowserRedactionTests(unittest.TestCase):
             with zipfile.ZipFile(io.BytesIO(base64.b64decode(embedded))) as archive:
                 self.assertNotIn(cookie, archive.read('0.trace').decode())
             self.assertNotIn(password, (root / 'run.log').read_text())
+
+    def test_signalr_connection_tokens_are_removed_from_urls_and_negotiation(self):
+        token = 'synthetic-connection-token-canary'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, 'w') as archive:
+                archive.writestr('resources/negotiate.json', json.dumps({'connectionToken': token, 'connectionId': 'public-id'}))
+                archive.writestr('0.network', json.dumps({'url': 'ws://127.0.0.1:5174/hubs/logistics?id=' + token + '&transport=WebSockets'}))
+            (root / 'trace.zip').write_bytes(data.getvalue())
+            (root / 'run.log').write_text('http://127.0.0.1:5174/hubs/logistics?id=' + token + '&x=1')
+            redact.sanitize([root])
+            with zipfile.ZipFile(root / 'trace.zip') as archive:
+                self.assertNotIn(token, archive.read('resources/negotiate.json').decode())
+                self.assertIn('public-id', archive.read('resources/negotiate.json').decode())
+                self.assertNotIn(token, archive.read('0.network').decode())
+                self.assertIn('&transport=WebSockets', archive.read('0.network').decode())
+            self.assertNotIn(token, (root / 'run.log').read_text())
+            self.assertIn('&x=1', (root / 'run.log').read_text())

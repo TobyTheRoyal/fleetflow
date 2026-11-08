@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         '/health': apiTarget,
+        '/hubs': { target: apiTarget, ws: true },
         '/api': apiTarget,
         '/openapi': apiTarget,
       },

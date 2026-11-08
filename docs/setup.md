@@ -88,3 +88,7 @@ API containers use a read-only root filesystem with a bounded `/tmp` tmpfs. Post
 - **Docker socket on macOS:** `scripts/test-backend.sh` automatically selects Docker Desktop's active context. Manual commands may need `DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"` and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
 - **Restricted first-run home for .NET:** an automation sandbox may need a writable `DOTNET_CLI_HOME`. A normal developer terminal usually does not.
 - **Dependency/certificate failure:** use the required runtime and configure trusted corporate/system certificates. Do not disable package audit or TLS validation.
+
+## M5b live updates
+
+No new environment secret, schema migration or external service is required. Rebuild the API with `docker compose up -d --build api` and restart `npm run dev` from `frontend/` after updating; Vite must load the new `/hubs` WebSocket proxy. Preserve the existing database volume and `.env.demo`. Use separate browser profiles and different managed Dispatcher accounts to observe automatic updates. The top bar indicates connection state; REST remains usable during reconnect and active queries reconcile in the background. See [the real-time guide](realtime.md). This milestone's hosted execution is separately unverified until its exact revision passes all five workflow jobs.

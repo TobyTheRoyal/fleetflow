@@ -1,10 +1,16 @@
+using FleetFlow.Application.Realtime;
 using FleetFlow.Domain.Common;
+using FleetFlow.Domain.Customers;
+using FleetFlow.Domain.Drivers;
+using FleetFlow.Domain.Shipments;
+using FleetFlow.Domain.Vehicles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace FleetFlow.Infrastructure.Persistence;
 
-internal sealed class EfTransaction(FleetFlowDbContext db)
+internal sealed class EfTransaction(FleetFlowDbContext db, ILogisticsNotifier notifier, TimeProvider clock, ILogger<EfTransaction> logger)
 {
     public async Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken)
     {
@@ -12,8 +18,19 @@ internal sealed class EfTransaction(FleetFlowDbContext db)
         try
         {
             var result = await action(cancellationToken);
+            var notifications = Changes();
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            // The commit is final. Request cancellation or transport failure must never report it as rolled back.
+            try
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                await notifier.PublishAsync(notifications, timeout.Token).WaitAsync(timeout.Token);
+            }
+            catch (Exception)
+            {
+                logger.LogWarning("Real-time delivery failed after commit; clients will recover through REST.");
+            }
             return result;
         }
         catch (DbUpdateConcurrencyException)
@@ -33,6 +50,40 @@ internal sealed class EfTransaction(FleetFlowDbContext db)
             // A failed operation must not leave pending changes/events in a reused request scope.
             db.ChangeTracker.Clear();
         }
+    }
+
+    private List<LogisticsNotification> Changes()
+    {
+        db.ChangeTracker.DetectChanges();
+        var result = new List<LogisticsNotification>();
+        foreach (var entry in db.ChangeTracker.Entries<ShipmentEvent>().Where(x => x.State == EntityState.Added))
+        {
+            var history = entry.Entity;
+            var shipment = db.ChangeTracker.Entries<Shipment>().Single(x => x.Entity.Id == history.ShipmentId).Entity;
+            var type = history.EventType switch
+            {
+                ShipmentEventType.Created => "ShipmentCreated",
+                ShipmentEventType.DetailsChanged => "ShipmentUpdated",
+                ShipmentEventType.AssignmentChanged => "ShipmentAssigned",
+                _ when history.NewStatus == ShipmentStatus.Cancelled => "ShipmentCancelled",
+                _ => "ShipmentStatusChanged"
+            };
+            result.Add(new(history.Id, "shipment", shipment.Id, type, shipment.Version, history.OccurredAtUtc));
+        }
+        foreach (var entry in db.ChangeTracker.Entries().Where(x => x.State is EntityState.Added or EntityState.Modified))
+        {
+            var resource = entry.Entity switch
+            {
+                Driver driver => ("driver", driver.Id),
+                Vehicle vehicle => ("vehicle", vehicle.Id),
+                Customer customer => ("customer", customer.Id),
+                _ => ((string, Guid)?)null
+            };
+            if (resource is { } value)
+                result.Add(new(Guid.CreateVersion7(), value.Item1, value.Item2,
+                    value.Item1 + (entry.State == EntityState.Added ? "Created" : "Updated"), null, clock.GetUtcNow()));
+        }
+        return result;
     }
 
     private static bool IsReservationConcurrencyFailure(Exception exception)
