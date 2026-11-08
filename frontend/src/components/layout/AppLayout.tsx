@@ -20,6 +20,7 @@ import {
   UserRound,
   LogOut,
   KeyRound,
+  Sparkles,
   Route,
   PanelLeftClose,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ import { SystemHealth } from './SystemHealth'
 import { apiBase } from '@/lib/api'
 const navigation = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
+  { to: '/insights', label: 'AI Insights', icon: Sparkles },
   { to: '/shipments', label: 'Shipments', icon: Package },
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/drivers', label: 'Drivers', icon: UserRound },

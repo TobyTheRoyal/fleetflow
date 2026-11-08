@@ -22,7 +22,7 @@ export function Pagination({
   const end = start === 0 ? 0 : Math.min(page * pageSize, totalCount)
   return (
     <div className="pagination">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-600">
         Showing{' '}
         <strong className="text-slate-700">
           {start}–{end}
@@ -30,7 +30,7 @@ export function Pagination({
         of <strong className="text-slate-700">{totalCount}</strong>
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-xs text-slate-500 flex items-center gap-2">
+        <label className="text-xs text-slate-600 flex items-center gap-2">
           Rows per page
           <select
             aria-label="Rows per page"
@@ -46,7 +46,7 @@ export function Pagination({
             ))}
           </select>
         </label>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-slate-600">
           Page {page} of {Math.max(1, totalPages)}
         </span>
         <Button

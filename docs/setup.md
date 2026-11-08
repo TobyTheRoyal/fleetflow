@@ -92,3 +92,15 @@ API containers use a read-only root filesystem with a bounded `/tmp` tmpfs. Post
 ## M5b live updates
 
 No new environment secret, schema migration or external service is required. Rebuild the API with `docker compose up -d --build api` and restart `npm run dev` from `frontend/` after updating; Vite must load the new `/hubs` WebSocket proxy. Preserve the existing database volume and `.env.demo`. Use separate browser profiles and different managed Dispatcher accounts to observe automatic updates. The top bar indicates connection state; REST remains usable during reconnect and active queries reconcile in the background. See [the real-time guide](realtime.md). This milestone's hosted execution is separately unverified until its exact revision passes all five workflow jobs.
+
+## M6 operational insights
+
+Apply the additive ledger migration without resetting existing data:
+
+```sh
+docker compose -p fleetflow build api
+docker compose -p fleetflow run --rm --no-deps api --migrate
+docker compose -p fleetflow up -d api
+```
+
+Keep `.env` and `.env.demo`; no new seed/reset is needed. The Insights page works without credentials. External inference stays disabled unless the optional [Cloudflare manual verification/configuration](insights.md) is completed. Root `.env` variables are forwarded by Compose; host .NET uses process environment/development secrets instead. No AI key belongs in frontend configuration. [Future same-origin free deployment](../ZERO_COST_DEPLOYMENT.md) remains preparation only.

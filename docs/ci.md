@@ -50,3 +50,7 @@ The M0–M4.1 five-job hosted baseline was reported green by the project owner. 
 ## M5b verification
 
 The five existing jobs automatically include real PostgreSQL/SignalR integration tests and the new multi-user Playwright scenarios in every browser project. No extra service, port exposure, deployment, credential or workflow permission is needed. Vite's same-origin WebSocket proxy connects to the job's isolated API; generated managed accounts remain private temporary test data. Sanitize authenticated traces as before; M5b additionally redacts SignalR connection tokens from negotiation bodies and Hub transport URLs. Local results and exact hosted follow-up steps are recorded in [M5b verification](m5b-verification.md); no hosted M5b result is inferred from a previous green baseline.
+
+## M6 provider-free verification
+
+The same five jobs include M6 unit/integration/component tests and all browser projects. Browser setup now builds the dedicated Development test host through `compose.e2e.yaml`; it uses the real API/Identity/PostgreSQL and only a fake inference provider. Normal application images exclude that host. No Cloudflare credential or external inference service is needed or permitted. Generated insight contracts participate in the existing API drift check. Local results are recorded in [M6 verification](m6-verification.md); prior green hosted jobs do not certify this new revision.

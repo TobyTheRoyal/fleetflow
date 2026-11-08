@@ -48,5 +48,6 @@ export function notificationHandler(cache: QueryClient) {
       void cache.invalidateQueries({ queryKey: keys.shipments })
       void cache.invalidateQueries({ queryKey: keys.dashboard })
     }
+    void cache.invalidateQueries({ queryKey: keys.insights })
   }
 }

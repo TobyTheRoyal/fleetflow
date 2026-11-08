@@ -107,8 +107,8 @@ jobs:
         run: |
           node --version
           npm ls @playwright/test playwright playwright-core
-      # Global setup builds the real Release API image, starts an isolated Compose
-      # stack on loopback, applies migrations/seed and waits for DB/API readiness.
+      # Global setup builds the test-only host around the real Release API with fake AI.
+      # Identity/CSRF/PostgreSQL remain real; the isolated stack needs no provider key.
       - name: Run browser and accessibility tests
         shell: bash
         run: |

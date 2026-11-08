@@ -17,6 +17,7 @@ it('invalidates shipment details, history, listings and dashboard without patchi
   expect(invalidate.mock.calls.map(([filter]) => filter?.queryKey)).toEqual([
     ['dashboard'],
     ['shipments'],
+    ['insights'],
   ])
   expect(cache.getQueryData(['shipments', notification.entityId])).toEqual({
     version: 2,
@@ -34,14 +35,14 @@ it('deduplicates events and ignores older shipment versions independently of tim
     version: 2,
     timestampUtc: '2026-11-08T11:00:00Z',
   })
-  expect(invalidate).toHaveBeenCalledTimes(2)
+  expect(invalidate).toHaveBeenCalledTimes(3)
   receive({
     ...notification,
     eventId: '44444444-4444-4444-8444-444444444444',
     version: 4,
     timestampUtc: '2026-11-08T09:00:00Z',
   })
-  expect(invalidate).toHaveBeenCalledTimes(4)
+  expect(invalidate).toHaveBeenCalledTimes(6)
 })
 it.each(['driver', 'vehicle', 'customer'] as const)(
   'refreshes %s projections for out-of-order unversioned hints',
@@ -57,7 +58,7 @@ it.each(['driver', 'vehicle', 'customer'] as const)(
       eventId: '33333333-3333-4333-8333-333333333333',
       timestampUtc: '2026-11-08T09:00:00Z',
     })
-    expect(invalidate).toHaveBeenCalledTimes(6)
+    expect(invalidate).toHaveBeenCalledTimes(8)
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: [entityType === 'vehicle' ? 'vehicles' : entityType + 's'],
     })
@@ -71,5 +72,5 @@ it('ignores malformed hints and recovers all logistics caches after a gap', asyn
   receive({ ...notification, version: -1 })
   expect(invalidate).not.toHaveBeenCalled()
   await refreshLogistics(cache)
-  expect(invalidate).toHaveBeenCalledTimes(5)
+  expect(invalidate).toHaveBeenCalledTimes(6)
 })

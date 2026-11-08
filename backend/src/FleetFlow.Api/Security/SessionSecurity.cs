@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
+using FleetFlow.Application.Insights;
 using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Antiforgery;
@@ -15,6 +17,7 @@ namespace FleetFlow.Api.Security;
 
 public static class SessionSecurity
 {
+    public const string InsightRead = "InsightsRead", AiGenerate = "AiGenerate";
     public const string Read = "LogisticsRead", Write = "LogisticsWrite", Manage = "ManageUsers";
     public static IServiceCollection AddSessionSecurity(this IServiceCollection services, bool development)
     {
@@ -52,6 +55,10 @@ public static class SessionSecurity
         services.AddAuthorization(options =>
         {
             options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            options.AddPolicy(InsightRead, policy => policy.RequireRole(FleetRoles.All));
+            options.AddPolicy(AiGenerate, policy => policy.RequireRole(FleetRoles.All).RequireAssertion(context =>
+                context.Resource is HttpContext http && Guid.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+                && http.RequestServices.GetRequiredService<AiSettings>().AllowedUserIds.Contains(id)));
             options.AddPolicy(Read, policy => policy.RequireRole(FleetRoles.All));
             options.AddPolicy(Write, policy => policy.RequireRole(FleetRoles.Admin, FleetRoles.Dispatcher));
             options.AddPolicy(Manage, policy => policy.RequireRole(FleetRoles.Admin));

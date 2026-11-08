@@ -1844,6 +1844,472 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Verified PostgreSQL-backed operational findings. AI is explicit POST only, requires an allowlisted authenticated account, CSRF, verified Cloudflare Workers Free configuration and persistent UTC quotas. No business mutations or automatic external requests. Returned AI assistance uses validated finding IDs/actions and server templates; no raw model prose. Page/pageSize are bounded; shipmentId optionally filters findings. SnapshotFingerprint comes from GET summary; stale snapshots return 409. 429 indicates an application budget/concurrency limit; 503 indicates disabled/unverified/unavailable AI. */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    pageSize?: number;
+                    shipmentId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PageResponseOfOperationalFinding"];
+                        "application/json": components["schemas"]["PageResponseOfOperationalFinding"];
+                        "text/json": components["schemas"]["PageResponseOfOperationalFinding"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Verified PostgreSQL-backed operational findings. AI is explicit POST only, requires an allowlisted authenticated account, CSRF, verified Cloudflare Workers Free configuration and persistent UTC quotas. No business mutations or automatic external requests. Returned AI assistance uses validated finding IDs/actions and server templates; no raw model prose. Page/pageSize are bounded; shipmentId optionally filters findings. SnapshotFingerprint comes from GET summary; stale snapshots return 409. 429 indicates an application budget/concurrency limit; 503 indicates disabled/unverified/unavailable AI. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["InsightSummary"];
+                        "application/json": components["schemas"]["InsightSummary"];
+                        "text/json": components["schemas"]["InsightSummary"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/ai-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Verified PostgreSQL-backed operational findings. AI is explicit POST only, requires an allowlisted authenticated account, CSRF, verified Cloudflare Workers Free configuration and persistent UTC quotas. No business mutations or automatic external requests. Returned AI assistance uses validated finding IDs/actions and server templates; no raw model prose. Page/pageSize are bounded; shipmentId optionally filters findings. SnapshotFingerprint comes from GET summary; stale snapshots return 409. 429 indicates an application budget/concurrency limit; 503 indicates disabled/unverified/unavailable AI. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AiAvailability"];
+                        "application/json": components["schemas"]["AiAvailability"];
+                        "text/json": components["schemas"]["AiAvailability"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/ai-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Verified PostgreSQL-backed operational findings. AI is explicit POST only, requires an allowlisted authenticated account, CSRF, verified Cloudflare Workers Free configuration and persistent UTC quotas. No business mutations or automatic external requests. Returned AI assistance uses validated finding IDs/actions and server templates; no raw model prose. Page/pageSize are bounded; shipmentId optionally filters findings. SnapshotFingerprint comes from GET summary; stale snapshots return 409. 429 indicates an application budget/concurrency limit; 503 indicates disabled/unverified/unavailable AI. */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Request token from GET /api/v1/auth/csrf, paired with its HttpOnly antiforgery cookie. Refresh after login/logout; never retry a write automatically. */
+                    "X-CSRF-TOKEN": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    /**
+                     * @example {
+                     *       "snapshotFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["AiAnalysisRequest"];
+                    /**
+                     * @example {
+                     *       "snapshotFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                     *     }
+                     */
+                    "text/json": components["schemas"]["AiAnalysisRequest"];
+                    /**
+                     * @example {
+                     *       "snapshotFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                     *     }
+                     */
+                    "application/*+json": components["schemas"]["AiAnalysisRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AiAnalysis"];
+                        "application/json": components["schemas"]["AiAnalysis"];
+                        "text/json": components["schemas"]["AiAnalysis"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ValidationProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipments": {
         parameters: {
             query?: never;
@@ -4840,6 +5306,58 @@ export interface components {
             postcode: string;
             countryCode: string;
         };
+        AiAnalysis: {
+            /** Format: date-time */
+            generatedAtUtc: string;
+            snapshotFingerprint: string;
+            model: string;
+            cached: boolean;
+            label: string;
+            summary: string;
+            /** Format: int32 */
+            sampleSize: number;
+            /** Format: int32 */
+            totalFindings: number;
+            recommendations: components["schemas"]["AiRecommendation"][];
+            budget: components["schemas"]["AiBudget"];
+        };
+        AiAnalysisRequest: {
+            snapshotFingerprint: string;
+        };
+        AiAvailability: {
+            canGenerate: boolean;
+            code: string;
+            explanation: string;
+            model: string;
+            /** Format: date-time */
+            verificationExpiresAtUtc: null | string;
+            budget: components["schemas"]["AiBudget"];
+        };
+        AiBudget: {
+            /** Format: int32 */
+            userLimit: number;
+            /** Format: int32 */
+            userRemaining: number;
+            /** Format: int32 */
+            globalLimit: number;
+            /** Format: int32 */
+            globalRemaining: number;
+            /** Format: date-time */
+            resetsAtUtc: string;
+            inProgress: boolean;
+            /** Format: date-time */
+            retryAfterUtc: null | string;
+            providerBlockCode?: null | string;
+        };
+        AiRecommendation: {
+            findingId: string;
+            /** Format: uuid */
+            shipmentId: string;
+            shipmentNumber: string;
+            severity: components["schemas"]["FindingSeverity"];
+            verifiedExplanation: string;
+            suggestedAction: string;
+        };
         AssignShipmentRequest: {
             /** Format: int64 */
             version: number;
@@ -4937,12 +5455,64 @@ export interface components {
             /** Format: date-time */
             createdAtUtc: string;
         };
+        FindingEvidence: {
+            status: components["schemas"]["ShipmentStatus"];
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            pickupUtc: string;
+            /** Format: date-time */
+            deadlineUtc: string;
+            driverAssigned: boolean;
+            vehicleAssigned: boolean;
+            driverEligible: boolean;
+            vehicleEligible: boolean;
+        };
+        /** @enum {unknown} */
+        FindingSeverity: "Low" | "Medium" | "High" | "Critical";
+        /** @enum {unknown} */
+        FindingType: "Overdue" | "InTransitOverdue" | "DueSoon" | "PickupWindowOpen" | "UnassignedDraft" | "AssignmentRequiresReview";
         HealthResponse: {
             status: string;
+        };
+        InsightSummary: {
+            /** Format: date-time */
+            asOfUtc: string;
+            /** Format: int32 */
+            totalFindings: number;
+            /** Format: int32 */
+            affectedShipments: number;
+            /** Format: int32 */
+            overdueShipments: number;
+            /** Format: int32 */
+            dueSoonShipments: number;
+            /** Format: int32 */
+            criticalFindings: number;
+            /** Format: int32 */
+            highFindings: number;
+            findingsByType: {
+                [key: string]: number;
+            };
+            snapshotFingerprint: string;
+            /** Format: int32 */
+            aiSampleSize: number;
         };
         LoginRequest: {
             email: string;
             password: string;
+        };
+        OperationalFinding: {
+            findingId: string;
+            /** Format: uuid */
+            shipmentId: string;
+            shipmentNumber: string;
+            type: components["schemas"]["FindingType"];
+            severity: components["schemas"]["FindingSeverity"];
+            explanation: string;
+            evidence: components["schemas"]["FindingEvidence"];
+            recommendedAction: string;
+            /** Format: date-time */
+            timestampUtc: string;
         };
         OperationResponse: {
             success: boolean;
@@ -4960,6 +5530,17 @@ export interface components {
         };
         PageResponseOfDriverResponse: {
             items: components["schemas"]["DriverResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            pageSize: number;
+            /** Format: int32 */
+            totalCount: number;
+            /** Format: int32 */
+            totalPages: number;
+        };
+        PageResponseOfOperationalFinding: {
+            items: components["schemas"]["OperationalFinding"][];
             /** Format: int32 */
             page: number;
             /** Format: int32 */

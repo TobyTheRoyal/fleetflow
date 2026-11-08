@@ -12,7 +12,9 @@
 **/FLEETFLOW_SPEC.md
 **/CODEX_MILESTONES.md
 **/README_FIRST.md
-frontend
 docs
+artifacts
+**/test-results
+**/playwright-report
 
 **/._*

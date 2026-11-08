@@ -63,6 +63,9 @@ builder.Services.AddSignalR(options =>
 builder.Services.AddSingleton<LiveConnections>();
 builder.Services.AddHostedService<LiveSessionMonitor>();
 builder.Services.AddSingleton<ILogisticsNotifier, SignalRLogisticsNotifier>();
+var serveSpa = builder.Configuration.GetValue<bool>("SERVE_SPA");
+if (serveSpa && int.TryParse(builder.Configuration["PORT"], out var port) && port is > 0 and <= 65535)
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 var app = builder.Build();
 
 if (migrate || seed || seedUsers)
@@ -92,6 +95,11 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 
 app.UseWebSockets();
+if (serveSpa)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -105,6 +113,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 app.MapHub<LogisticsHub>(HubSecurity.Path, options => options.CloseOnAuthenticationExpiration = true);
+if (serveSpa)
+{
+    // Known SPA routes only: unknown API/Hub URLs must never return index.html.
+    foreach (var route in new[] { "/login", "/insights", "/customers", "/drivers", "/vehicles", "/users", "/shipments/{*path:nonfile}" })
+        app.MapFallbackToFile(route, "index.html").AllowAnonymous();
+}
 app.Run();
 
 // Allows WebApplicationFactory to start the real application in integration tests.

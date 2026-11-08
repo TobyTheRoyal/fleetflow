@@ -1,10 +1,12 @@
 using FleetFlow.Application.Fleet;
+using FleetFlow.Application.Insights;
 using FleetFlow.Application.Queries;
 using FleetFlow.Application.Realtime;
 using FleetFlow.Application.Shipments;
 using FleetFlow.Infrastructure.Fleet;
 using FleetFlow.Infrastructure.Health;
 using FleetFlow.Infrastructure.Identity;
+using FleetFlow.Infrastructure.Insights;
 using FleetFlow.Infrastructure.Persistence;
 using FleetFlow.Infrastructure.Persistence.Seeding;
 using FleetFlow.Infrastructure.Queries;
@@ -29,6 +31,13 @@ public static class DependencyInjection
 
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(AiConfiguration.Read(configuration));
+        services.AddScoped<IInsightQueries, EfInsightQueries>();
+        services.AddScoped<IAiUsageStore, EfAiUsageStore>();
+        services.AddScoped<AiAnalysisService>();
+        services.AddHttpClient<IAiExplanationProvider, CloudflareExplanationProvider>(http => http.Timeout = Timeout.InfiniteTimeSpan)
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+            .RemoveAllLoggers();
         services.TryAddSingleton<ILogisticsNotifier, NullLogisticsNotifier>();
         services.AddScoped<IShipmentStore, EfShipmentStore>();
         services.AddScoped<ShipmentService>();

@@ -1,0 +1,24 @@
+# Optional same-origin packaging. Building this image does not deploy any service.
+FROM node:24.22.2-bookworm-slim AS frontend
+WORKDIR /ui
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+ENV VITE_API_BASE_URL=""
+RUN npm run build
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS backend
+WORKDIR /src
+COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY backend/src/ backend/src/
+RUN dotnet restore backend/src/FleetFlow.Api/FleetFlow.Api.csproj --locked-mode
+RUN dotnet publish backend/src/FleetFlow.Api/FleetFlow.Api.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14
+WORKDIR /app
+ENV ASPNETCORE_HTTP_PORTS=8080 SERVE_SPA=true AI_ENABLED=false
+COPY --from=backend /app/publish ./
+COPY --from=frontend /ui/dist/ ./wwwroot/
+USER $APP_UID
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "FleetFlow.Api.dll"]

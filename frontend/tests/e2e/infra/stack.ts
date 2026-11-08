@@ -24,6 +24,8 @@ export function compose(...args: string[]) {
       file,
       '-f',
       resolve('../compose.yaml'),
+      '-f',
+      resolve('../compose.e2e.yaml'),
       ...args,
     ],
     {
@@ -53,6 +55,8 @@ POSTGRES_USER=fleetflow
 POSTGRES_PASSWORD=${password}
 POSTGRES_PORT=5434
 API_PORT=5180
+AI_ENABLED=false
+CLOUDFLARE_API_TOKEN=
 DEMO_ADMIN_PASSWORD=${demoPasswords.Admin}
 DEMO_DISPATCHER_PASSWORD=${demoPasswords.Dispatcher}
 DEMO_VIEWER_PASSWORD=${demoPasswords.Viewer}
@@ -94,7 +98,10 @@ DEMO_VIEWER_PASSWORD=${demoPasswords.Viewer}
       'run',
       '--rm',
       '--no-deps',
+      '--entrypoint',
+      'dotnet',
       'api',
+      'FleetFlow.Api.dll',
       '--migrate',
       '--seed',
       '--seed-users',

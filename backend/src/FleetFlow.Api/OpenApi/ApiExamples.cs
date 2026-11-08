@@ -48,6 +48,20 @@ internal static class ApiExamples
                     }
             return Task.CompletedTask;
         }
+        if (route.StartsWith("api/v1/insights", StringComparison.Ordinal))
+        {
+            operation.Description = "Verified PostgreSQL-backed operational findings. AI is explicit POST only, requires an allowlisted authenticated account, CSRF, verified Cloudflare Workers Free configuration and persistent UTC quotas. No business mutations or automatic external requests. Returned AI assistance uses validated finding IDs/actions and server templates; no raw model prose. Page/pageSize are bounded; shipmentId optionally filters findings. SnapshotFingerprint comes from GET summary; stale snapshots return 409. 429 indicates an application budget/concurrency limit; 503 indicates disabled/unverified/unavailable AI.";
+            if (method == "POST" && operation.RequestBody?.Content is { } content)
+                foreach (var media in content.Values) media.Example = JsonSerializer.SerializeToNode(new { snapshotFingerprint = new string('a', 64) });
+            if (operation.Responses is { } insightResponses)
+                foreach (var (status, insightResponse) in insightResponses)
+                    if (status is "400" or "401" or "403" or "409" or "422" or "429" or "503" && insightResponse.Content is { } error)
+                    {
+                        var media = error.Values.FirstOrDefault() ?? new OpenApiMediaType();
+                        error.Clear(); error["application/problem+json"] = media;
+                    }
+            return Task.CompletedTask;
+        }
         object? request = route switch
         {
             "api/v1/shipments" when method == "POST" => new CreateShipmentRequest

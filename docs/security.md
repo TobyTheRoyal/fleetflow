@@ -61,3 +61,11 @@ The Hub requires the logistics read role, uses existing cookie authentication an
 Local single-instance memory, a revocation/send race for in-flight hints, best-effort delivery, absence of connection-level production abuse budgets and deployment-specific transport/proxy testing remain limits. The authoritative REST API and expected-Version checks remain mandatory. No public exposure is approved.
 
 SignalR negotiation connection tokens and Hub URL `id` values are now included in authenticated artifact redaction, with a regression test. They must not be shared as ordinary diagnostic identifiers.
+
+## M6 external inference threat boundary
+
+External AI is off by default. Enablement requires exact approved Cloudflare model, an account-specific expiring free-plan review, terms/fictional-data confirmations and a real Identity-user allowlist. Role membership alone never grants inference. Existing session validation, CSRF and logistics role policies remain enforced. No raw database text, names, customer addresses, cargo prose, API credentials or shipment numbers are sent to the provider. The server validates IDs, action enums, priority ordering and exact fact sentences before returning anything. Model output cannot invoke tools or logistics writes.
+
+Persistent attempt reservations enforce user/global UTC budgets and in-flight leases across instances sharing PostgreSQL. Failure/cancellation consumes quota; provider exhaustion blocks more inference that UTC day. Limits cannot verify the external account's billing status. There is no billing/upgrade API, model/provider fallback, Gateway, automatic retry or background inference. Transport uses a fixed HTTPS destination, no redirects/cookies and suppressed client request logging. Provider error messages are not exposed.
+
+Only fictional datasets may opt in. Provider processing/metadata and cross-border transfers still require a manual privacy/terms assessment before public use. The [AI guide](insights.md) lists verified official sources and limitations. The [future zero-cost deployment guide](../ZERO_COST_DEPLOYMENT.md) identifies pending TLS/proxy/origin, bootstrap, key-protection, migration-role and backup work. The optional same-origin Docker image is packaging, not public deployment readiness.

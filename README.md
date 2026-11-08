@@ -14,6 +14,7 @@ The emphasis is on engineering behind a usable product: backend-enforced busines
 - Administrators can provision users and revoke access immediately.
 - Collaborate through authenticated SignalR updates, with reconnect recovery and retained unsaved edits.
 - Monitor actual shipment counts, overdue deliveries, upcoming deadlines and recent orders.
+- Inspect verified operational findings and evidence; optionally request a quota-limited, grounded AI summary through Cloudflare Workers AI (disabled until manually verified).
 - Search and filter shipments in PostgreSQL, with URL-synchronized filters and pagination.
 - Create transport orders with full addresses, cargo details, decimal weights and schedules.
 - Assign an active driver and an available vehicle with sufficient payload capacity.
@@ -51,6 +52,7 @@ Captured from the actual application against a fresh, isolated PostgreSQL databa
 | --- | --- |
 | Backend | C#, .NET 10 LTS, ASP.NET Core controllers, built-in DI/logging/OpenAPI |
 | Live updates | ASP.NET Core SignalR, Identity cookies, typed invalidation hints and REST recovery |
+| Logistics intelligence | Deterministic C# rules/SQL, optional direct Cloudflare Workers AI REST, persistent usage budgets |
 | Persistence | EF Core 10, Npgsql 10, PostgreSQL 18, versioned migrations |
 | Frontend | React, TypeScript, Vite, React Router, Tailwind CSS, shadcn-style Radix components, Lucide |
 | Forms/server state | React Hook Form, Zod, TanStack Query |
@@ -80,9 +82,9 @@ FleetFlow is a **modular monolith**. One API and one database keep transactions,
 - **Infrastructure** implements EF mappings, SQL projections, PostgreSQL transactions, resource locks, migration and development seeding.
 - **API** handles HTTP binding, dedicated DTOs, validation, ProblemDetails and dependency injection. EF entities are never serialized as API contracts.
 
-The frontend is organized into dashboard, shipments, customers, drivers and vehicles features. TanStack Query owns server state; local React state holds dialogs and deliberate edit snapshots. OpenAPI-generated types provide compile-time contracts and Zod checks responses at runtime.
+The frontend is organized into dashboard, shipments, customers, drivers, vehicles, authentication, realtime and insights features. TanStack Query owns server state; local React state holds dialogs and deliberate edit snapshots. OpenAPI-generated types provide compile-time contracts and Zod checks responses at runtime.
 
-[Architecture and decisions](docs/architecture.md) · [API v1 contract](docs/api/v1.md) · [Real-time design](docs/realtime.md)
+[Architecture and decisions](docs/architecture.md) · [API v1 contract](docs/api/v1.md) · [Real-time design](docs/realtime.md) · [Insights and optional AI](docs/insights.md)
 
 ## Domain and persistence
 
@@ -202,7 +204,7 @@ Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback po
 
 Coverage reports are generated under `artifacts/backend/` and `frontend/coverage/`. Inspect coverage to find missing behaviors, not to chase an arbitrary percentage. `python3 scripts/coverage-summary.py` prints per-suite/per-assembly results. Generated API contracts, EF migration/snapshot files and the frontend bootstrap are excluded from line metrics; migration execution is still tested.
 
-[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md) · [M5a authentication verification](docs/m5a-verification.md) · [M5b real-time verification](docs/m5b-verification.md)
+[Testing guide and coverage scope](docs/testing.md) · [M4 verification history](docs/m4-verification.md) · [M4.1 browser/CI verification](docs/m41-verification.md) · [M5a authentication verification](docs/m5a-verification.md) · [M5b real-time verification](docs/m5b-verification.md) · [M6 analytics/AI verification](docs/m6-verification.md)
 
 ## Continuous integration
 
@@ -227,6 +229,16 @@ curl --fail http://127.0.0.1:5080/health/ready
 
 A practical interview demo: create a Graz–Vienna order, assign an eligible driver/vehicle, plan it, start transit and mark it delivered. Inspect the real event timeline and dashboard changes. Then demonstrate a stale version or overlapping reservation conflict and the corresponding automated test.
 
+## Operational insights and optional AI
+
+Open **AI Insights** after signing in. PostgreSQL-backed rules identify overdue/in-transit overdue shipments, deadlines within 24 hours, started Planned pickup windows, unassigned Drafts and resource eligibility issues. Findings include recorded evidence and shipment links. They work fully without an external account or API key.
+
+**Generate AI Analysis** is an explicit action available only to individually approved accounts. A server-side Cloudflare Workers AI client uses `@cf/zai-org/glm-4.7-flash` to assemble validated fact sentences and prioritize approved dispatcher suggestions. It receives no free-text cargo/customer/driver information and cannot change business records. The UI distinguishes verified findings from AI-selected suggestions; no GPS, delay causes or ETAs are invented.
+
+External inference defaults to **off**. Before enabling it, manually verify Workers Free, the exact model, current terms/EEA applicability, an entirely fictional dataset and an account without paid billing/credits. No credit card or paid plan is part of this implementation. Defaults are 3 attempts/user/UTC day, 20 globally, one global concurrent generation, 500 output tokens, bounded input and a short timeout. Attempts—including failures—are persisted; identical results have a five-minute per-user cache. These safeguards do not guarantee provider quota availability or permanent zero-cost service.
+
+See [configuration, quotas, security and manual token setup](docs/insights.md), [actual M6 verification](docs/m6-verification.md) and [future zero-cost hosting assessment](ZERO_COST_DEPLOYMENT.md). No live inference, external account setup or deployment is needed for local development or automated tests. Browser tests preserve the real API, PostgreSQL, Identity and CSRF while replacing only the external provider in a separate test-only host.
+
 ## Security and limits
 
 Identity sessions, CSRF and server-enforced role policies secure logistics endpoints. This remains a **local portfolio application without production deployment readiness**. Local HTTP cookies and unencrypted-at-rest development Data Protection keys must not be reused as a public deployment configuration.
@@ -245,7 +257,8 @@ Other boundaries: English UI and fixed Vienna display timezone; offset paginatio
 - **M5a:** Identity authentication, cookie/CSRF sessions, role policies, managed accounts and verified audit actors.
 - **M5b:** authenticated SignalR notifications, session revalidation, live query refresh and multi-user tests.
 - **Later, only after approval:** further deployment hardening.
-- **Later optional work:** useful, explicitly labeled AI assistance or a driver-oriented mobile exploration, after the secured core is complete.
+- **M6:** verified operational analytics and optional, explicit Cloudflare Workers AI assistance with persistent quotas and a credential-free test provider.
+- **Not started:** M7/mobile or public deployment.
 
 Private planning/instruction documents and actual credentials are excluded from Git and Docker build contexts. Nothing is publicly deployed by this repository.
 

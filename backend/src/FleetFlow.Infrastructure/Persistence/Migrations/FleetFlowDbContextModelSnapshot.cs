@@ -425,6 +425,68 @@ namespace FleetFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("FleetFlow.Infrastructure.Insights.AiAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CacheExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DayUtc")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("LeaseExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTimeOffset?>("RetryAfterUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SelectionJson")
+                        .HasMaxLength(6000)
+                        .HasColumnType("character varying(6000)");
+
+                    b.Property<DateTimeOffset>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeaseExpiresAtUtc")
+                        .HasFilter("\"CompletedAtUtc\" IS NULL");
+
+                    b.HasIndex("DayUtc", "UserId");
+
+                    b.HasIndex("UserId", "Fingerprint", "CacheExpiresAtUtc");
+
+                    b.ToTable("AiAttempts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiAttempts_Fingerprint", "length(\"Fingerprint\") = 64");
+
+                            t.HasCheckConstraint("CK_AiAttempts_Lease", "\"LeaseExpiresAtUtc\" > \"StartedAtUtc\"");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
@@ -621,6 +683,15 @@ namespace FleetFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("FleetFlow.Domain.Shipments.Shipment", null)
                         .WithMany("Events")
                         .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FleetFlow.Infrastructure.Insights.AiAttempt", b =>
+                {
+                    b.HasOne("FleetFlow.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

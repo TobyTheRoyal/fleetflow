@@ -46,6 +46,7 @@ async function planned(request: APIRequestContext) {
 // state from a previous audit. Each case uses read-only fictional seed records.
 for (const [name, path] of [
   ['overview', '/'],
+  ['AI insights', '/insights'],
   ['shipments', '/shipments'],
   ['creation', '/shipments/new'],
   ['customers', '/customers'],

@@ -60,6 +60,9 @@ export function ShipmentDetailPage() {
         <ArrowLeft size={15} />
         Back to shipments
       </Link>
+      <Link className="back-link" to={`/insights?shipmentId=${id}`}>
+        Operational insights for this shipment
+      </Link>
       <div className="detail-header">
         <div>
           <p className="eyebrow">SHIPMENT DETAILS</p>

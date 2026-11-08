@@ -19,6 +19,7 @@ export function useResourceWrite<T, Input>(
         client.invalidateQueries({ queryKey: [resource] }),
         client.invalidateQueries({ queryKey: ['shipments'] }),
         client.invalidateQueries({ queryKey: ['dashboard'] }),
+        client.invalidateQueries({ queryKey: ['insights'] }),
       ])
     },
   })

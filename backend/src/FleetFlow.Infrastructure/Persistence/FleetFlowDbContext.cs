@@ -3,6 +3,7 @@ using FleetFlow.Domain.Drivers;
 using FleetFlow.Domain.Shipments;
 using FleetFlow.Domain.Vehicles;
 using FleetFlow.Infrastructure.Identity;
+using FleetFlow.Infrastructure.Insights;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -13,6 +14,7 @@ namespace FleetFlow.Infrastructure.Persistence;
 public sealed class FleetFlowDbContext(DbContextOptions<FleetFlowDbContext> options) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
 {
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
+    public DbSet<AiAttempt> AiAttempts => Set<AiAttempt>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Driver> Drivers => Set<Driver>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();

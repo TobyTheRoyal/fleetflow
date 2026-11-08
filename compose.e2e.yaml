@@ -1,0 +1,9 @@
+# Disposable browser-test override; never use for local development or public hosting.
+services:
+  api:
+    build:
+      dockerfile: backend/tests/FleetFlow.BrowserHost/Dockerfile
+    environment:
+      FLEETFLOW_E2E_HOST: '1'
+      AI_ENABLED: 'false'
+      CLOUDFLARE_API_TOKEN: ''

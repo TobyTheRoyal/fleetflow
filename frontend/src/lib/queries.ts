@@ -14,6 +14,7 @@ import {
 import type { CreateShipment, UpdateShipment } from '@/types/api'
 export const keys = {
   dashboard: ['dashboard'] as const,
+  insights: ['insights'] as const,
   shipments: ['shipments'] as const,
   customers: ['customers'] as const,
   drivers: ['drivers'] as const,
@@ -95,6 +96,7 @@ export function useShipmentWrite(id?: string) {
       await Promise.all([
         client.invalidateQueries({ queryKey: keys.shipments }),
         client.invalidateQueries({ queryKey: keys.dashboard }),
+        client.invalidateQueries({ queryKey: keys.insights }),
       ])
     },
   })

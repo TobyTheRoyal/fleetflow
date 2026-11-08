@@ -6,6 +6,11 @@ import { Route, Routes, Link } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { EmptyState } from '@/components/shared/Feedback'
 import { Button } from '@/components/ui/button'
+const InsightsPage = lazy(() =>
+  import('@/features/insights/InsightsPage').then((module) => ({
+    default: module.InsightsPage,
+  })),
+)
 const DashboardPage = lazy(() =>
   import('@/features/dashboard/DashboardPage').then((module) => ({
     default: module.DashboardPage,
@@ -53,6 +58,7 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="insights" element={<InsightsPage />} />
           <Route path="shipments" element={<ShipmentsPage />} />
           <Route element={<ProtectedRoute write />}>
             <Route path="shipments/new" element={<ShipmentForm />} />

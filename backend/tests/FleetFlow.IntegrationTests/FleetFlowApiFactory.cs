@@ -17,6 +17,6 @@ internal sealed class FleetFlowApiFactory(string connectionString, string enviro
             configureServices?.Invoke(services);
         });
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-            new Dictionary<string, string?> { ["ConnectionStrings:FleetFlow"] = connectionString }));
+            new Dictionary<string, string?> { ["ConnectionStrings:FleetFlow"] = connectionString, ["AI_ENABLED"] = "false", ["CLOUDFLARE_API_TOKEN"] = "" }));
     }
 }
