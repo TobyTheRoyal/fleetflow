@@ -23,7 +23,7 @@ public sealed class EfAiUsageStore(FleetFlowDbContext db, AiSettings settings, T
         await using var transaction = await db.Database.BeginTransactionAsync(token);
         // This lock covers all instances sharing PostgreSQL. It is released before network inference.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(741062100)", token);
-        var now = clock.GetUtcNow();
+        var now = PersistableUtc(clock.GetUtcNow());
         var day = DateOnly.FromDateTime(now.UtcDateTime);
         await db.AiAttempts.Where(x => x.DayUtc < day.AddDays(-30)).ExecuteDeleteAsync(token);
         await db.AiAttempts.Where(x => x.CompletedAtUtc == null && x.LeaseExpiresAtUtc <= now)
@@ -60,14 +60,21 @@ public sealed class EfAiUsageStore(FleetFlowDbContext db, AiSettings settings, T
         db.Entry(attempt).State = EntityState.Detached;
         return new(attempt.Id, null, null);
     }
-    public Task CompleteAsync(Guid id, string? selection, string? errorCode, CancellationToken token)
+    public async Task<DateTimeOffset> CompleteAsync(Guid id, string? selection, string? errorCode, CancellationToken token)
     {
-        var now = clock.GetUtcNow();
+        var now = PersistableUtc(clock.GetUtcNow());
         var retryAt = errorCode is "ai_provider_budget_exhausted" or "ai_paid_plan_required"
             ? new DateTimeOffset(now.UtcDateTime.Date.AddDays(1), TimeSpan.Zero) : now.AddMinutes(1);
-        return db.AiAttempts.Where(x => x.Id == id && x.CompletedAtUtc == null).ExecuteUpdateAsync(x => x
+        var updated = await db.AiAttempts.Where(x => x.Id == id && x.CompletedAtUtc == null).ExecuteUpdateAsync(x => x
             .SetProperty(a => a.CompletedAtUtc, now).SetProperty(a => a.SelectionJson, selection).SetProperty(a => a.ErrorCode, errorCode)
             .SetProperty(a => a.CacheExpiresAtUtc, selection == null ? (DateTimeOffset?)null : now.AddMinutes(5))
             .SetProperty(a => a.RetryAfterUtc, errorCode == null ? (DateTimeOffset?)null : retryAt), token);
+        if (updated != 1) throw new InvalidOperationException("The AI attempt could not be completed.");
+        return now;
     }
+
+    // .NET ticks are 100ns; PostgreSQL timestamptz stores whole microseconds.
+    // Truncate before writing and return this exact instant, never a second clock reading.
+    private static DateTimeOffset PersistableUtc(DateTimeOffset instant) =>
+        new(instant.UtcTicks - instant.UtcTicks % TimeSpan.TicksPerMicrosecond, TimeSpan.Zero);
 }

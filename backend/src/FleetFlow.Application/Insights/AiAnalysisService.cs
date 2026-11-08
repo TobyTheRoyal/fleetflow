@@ -37,7 +37,12 @@ public sealed class AiAnalysisService(IInsightQueries queries, IAiUsageStore usa
             throw new AiFailure(AiFailureKind.Validation, "ai_input_too_large", "The bounded analysis input exceeds its configured limit.");
         var reservation = await usage.ReserveAsync(userId, expectedFingerprint, settings.Model, token);
         AiSelection selection;
-        if (reservation.CachedSelection is { } cached) selection = Validate(cached, snapshot.Findings);
+        DateTimeOffset generatedAtUtc;
+        if (reservation.CachedSelection is { } cached)
+        {
+            selection = Validate(cached, snapshot.Findings);
+            generatedAtUtc = reservation.CachedAtUtc ?? throw new InvalidOperationException("A cached analysis requires its persisted completion timestamp.");
+        }
         else
         {
             try
@@ -47,7 +52,7 @@ public sealed class AiAnalysisService(IInsightQueries queries, IAiUsageStore usa
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, deadline.Token);
                 var output = await provider.GenerateAsync(prompt, linked.Token).WaitAsync(linked.Token);
                 selection = Validate(output, snapshot.Findings);
-                await usage.CompleteAsync(reservation.RequestId!.Value, JsonSerializer.Serialize(selection, InsightJson.Options), null, CancellationToken.None);
+                generatedAtUtc = await usage.CompleteAsync(reservation.RequestId!.Value, JsonSerializer.Serialize(selection, InsightJson.Options), null, CancellationToken.None);
             }
             catch (Exception exception)
             {
@@ -63,7 +68,7 @@ public sealed class AiAnalysisService(IInsightQueries queries, IAiUsageStore usa
             var fact = snapshot.Findings.Single(f => f.FindingId == choice.FindingId);
             return new AiRecommendation(fact.FindingId, fact.ShipmentId, fact.ShipmentNumber, fact.Severity, fact.Explanation, OperationalRules.ActionText(choice.Action));
         }).ToArray();
-        return new(reservation.CachedAtUtc ?? clock.GetUtcNow(), expectedFingerprint, settings.Model, reservation.CachedSelection is not null,
+        return new(generatedAtUtc, expectedFingerprint, settings.Model, reservation.CachedSelection is not null,
             "AI-assembled summary and priorities; validated fact statements and approved suggestions",
             string.Join(" ", selection.SummarySentences) + " Delay causes and arrival times are unknown.",
             snapshot.Findings.Count, snapshot.Summary.TotalFindings, recommendations, await usage.BudgetAsync(userId, token));

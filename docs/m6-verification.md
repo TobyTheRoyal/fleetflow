@@ -86,3 +86,7 @@ The existing stack is updated locally. Open `http://127.0.0.1:5173`, sign in wit
 [ZERO_COST_DEPLOYMENT.md](../ZERO_COST_DEPLOYMENT.md) evaluates a future Render Free same-origin Docker service, Neon Free persistent PostgreSQL root branch and Workers Free inference. It explicitly rejects expiring Render Free PostgreSQL and identifies manual/no-card checks, sleeps/quotas, persistence, security and provider-change risks. No keep-alive automation, hosted resource or billing activation was created.
 
 For hosted verification, review the diff and private-file guard, then push through your normal approved workflow. Confirm **Backend, Frontend and all three E2E jobs** for that exact revision, inspect sanitized artifacts if any fail, and provide no Cloudflare key to CI. No automatic commit/push was performed here.
+
+## Follow-up verification (2026-11-09)
+
+The first hosted M6 run passed the frontend/three browser jobs but exposed a backend timestamp precision defect. See [the CI stabilization and single live Cloudflare verification report](m6-ci-stabilization.md) for the exact fix, deterministic macOS/Linux regression coverage and subsequent owner-approved inference. The original no-live-call status above describes the initial milestone run.

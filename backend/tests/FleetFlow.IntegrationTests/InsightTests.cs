@@ -141,15 +141,27 @@ public sealed class InsightTests(PostgreSqlFixture postgres) : IClassFixture<Pos
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         Assert.Equal(0, provider.Calls);
     }
-    [Fact]
-    public async Task Successful_AI_is_bounded_cached_sanitized_and_never_mutates_business_data()
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(5, false)]
+    [InlineData(9, false)]
+    [InlineData(5, true)]
+    public async Task Successful_AI_is_bounded_cached_sanitized_and_never_mutates_business_data(int subMicrosecondTicks, bool advancingClock)
     {
+        // Reproduce Linux's 100ns precision deterministically, even on a microsecond-resolution host.
+        clock.Now = new DateTimeOffset(2026, 11, 8, 22, 53, 13, TimeSpan.Zero).AddTicks(6482400 + subMicrosecondTicks);
         await Seed(ShipmentStatus.InTransit);
+        if (advancingClock) clock.StepPerRead = TimeSpan.FromMilliseconds(17);
         var before = await Db(async db => (await db.Shipments.Select(s => new { s.Id, s.Version, s.Status }).SingleAsync(Token), await db.ShipmentEvents.CountAsync(Token)));
         using var response = await Generate();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = (await response.Content.ReadFromJsonAsync<AiAnalysis>(InsightJson.Options, Token))!;
         Assert.False(result.Cached);
+        var completedAt = await Db(db => db.AiAttempts.Select(a => a.CompletedAtUtc).SingleAsync(Token));
+        Assert.Equal(completedAt, result.GeneratedAtUtc);
+        Assert.Equal(0, result.GeneratedAtUtc.Ticks % TimeSpan.TicksPerMicrosecond);
+        Assert.Equal(TimeSpan.Zero, result.GeneratedAtUtc.Offset);
         Assert.Equal(2, result.Budget.UserRemaining);
         Assert.Single(result.Recommendations);
         var prompt = JsonSerializer.Serialize(provider.Prompt, InsightJson.Options);
@@ -163,6 +175,9 @@ public sealed class InsightTests(PostgreSqlFixture postgres) : IClassFixture<Pos
         var cached = (await repeated.Content.ReadFromJsonAsync<AiAnalysis>(InsightJson.Options, Token))!;
         Assert.True(cached.Cached);
         Assert.Equal(result.GeneratedAtUtc, cached.GeneratedAtUtc);
+        using var freshJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Token));
+        using var cachedJson = JsonDocument.Parse(await repeated.Content.ReadAsStringAsync(Token));
+        Assert.Equal(freshJson.RootElement.GetProperty("generatedAtUtc").GetString(), cachedJson.RootElement.GetProperty("generatedAtUtc").GetString());
         Assert.Equal(1, provider.Calls);
         var after = await Db(async db => (await db.Shipments.Select(s => new { s.Id, s.Version, s.Status }).SingleAsync(Token), await db.ShipmentEvents.CountAsync(Token)));
         Assert.Equal(before, after);
@@ -389,7 +404,13 @@ public sealed class InsightTests(PostgreSqlFixture postgres) : IClassFixture<Pos
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
-        public override DateTimeOffset GetUtcNow() => Now;
+        public TimeSpan StepPerRead { get; set; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            var instant = Now;
+            Now += StepPerRead;
+            return instant;
+        }
     }
     private sealed class FakeAi : IAiExplanationProvider
     {

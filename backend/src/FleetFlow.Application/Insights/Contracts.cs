@@ -26,7 +26,8 @@ public interface IAiUsageStore
 {
     Task<AiBudget> BudgetAsync(Guid userId, CancellationToken token);
     Task<AiReservation> ReserveAsync(Guid userId, string fingerprint, string model, CancellationToken token);
-    Task CompleteAsync(Guid id, string? selection, string? errorCode, CancellationToken token);
+    // Returns the canonical persisted completion instant, also used by cached responses.
+    Task<DateTimeOffset> CompleteAsync(Guid id, string? selection, string? errorCode, CancellationToken token);
 }
 public interface IAiExplanationProvider
 {
