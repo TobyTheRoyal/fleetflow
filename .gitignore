@@ -35,6 +35,12 @@ fleetflow_codex_pack/
 *.p12.b64
 .portfolio-local/
 
+# Local Neon context, agent instructions and OAuth MCP configuration
+/.neon
+/.agents/
+/.codex/
+/skills-lock.json
+
 # Local verification artifacts and coverage reports
 artifacts/
 
