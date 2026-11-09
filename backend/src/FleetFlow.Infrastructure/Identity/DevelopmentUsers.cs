@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace FleetFlow.Infrastructure.Identity;
 
-public sealed class DevelopmentUsers(FleetFlowDbContext db, UserManager<ApplicationUser> users, IConfiguration configuration, TimeProvider clock)
+public sealed class DevelopmentUsers(IdentityPersistence db, UserManager<ApplicationUser> users, IConfiguration configuration, TimeProvider clock)
 {
     public async Task SeedAsync(string environment, CancellationToken token)
     {

@@ -12,7 +12,16 @@ public sealed class DevelopmentSeeder(FleetFlowDbContext db, TimeProvider clock)
     public async Task SeedAsync(string environmentName, CancellationToken cancellationToken = default)
     {
         RequireDevelopment(environmentName);
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await SeedCoreAsync(cancellationToken);
+    }
+    internal Task SeedPortfolioAsync(CancellationToken cancellationToken)
+    {
+        if (db.SandboxSchema != "portfolio_template") throw new InvalidOperationException("Only the explicit demo template may be initialized.");
+        return SeedCoreAsync(cancellationToken);
+    }
+    private async Task SeedCoreAsync(CancellationToken cancellationToken)
+    {
+        await using var transaction = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         // Serialize concurrent seed commands without blocking normal shipment operations.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(741062001)", cancellationToken);
         if (await db.Shipments.AnyAsync(x => x.Id == SeedId(4, 1), cancellationToken)) return;
@@ -67,7 +76,7 @@ public sealed class DevelopmentSeeder(FleetFlowDbContext db, TimeProvider clock)
             db.Shipments.Add(shipment);
         }
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         db.ChangeTracker.Clear();
     }
 

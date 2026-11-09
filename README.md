@@ -6,11 +6,12 @@ FleetFlow helps a dispatcher create transport orders, assign eligible drivers an
 
 The emphasis is on engineering behind a usable product: backend-enforced business rules, relational constraints, transactional history, concurrent reservation handling and a real PostgreSQL-backed operations interface.
 
-> **Local development only.** ASP.NET Core Identity cookie authentication and Admin/Dispatcher/Viewer roles are implemented. Deployment hardening is still incomplete; do not expose this local application publicly.
+> **Local implementation, no public deployment.** M7 prepares a same-origin HTTPS portfolio demo with real Identity sessions, isolated Dispatcher sandboxes and protected production configuration. External account setup, ingress-proxy verification and a separately approved release remain required. [Deployment and recovery](docs/deployment.md).
 
 ## What you can do
 
-- Sign in with a managed account, use role-appropriate operations and change your password.
+- In normal mode, sign in with a managed account, use role-appropriate operations and change your password.
+- In explicitly enabled portfolio mode, enter a passwordless read-only demo or an exclusively leased Dispatcher sandbox with temporary fictional data.
 - Administrators can provision users and revoke access immediately.
 - Collaborate through authenticated SignalR updates, with reconnect recovery and retained unsaved edits.
 - Monitor actual shipment counts, overdue deliveries, upcoming deadlines and recent orders.
@@ -43,6 +44,8 @@ Captured from the actual application against a fresh, isolated PostgreSQL databa
 <img src="docs/screenshots/mobile-dashboard.png" width="390" alt="FleetFlow operations dashboard at a mobile viewport" />
 
 </details>
+
+![Public portfolio entry with read-only and isolated interactive options](docs/screenshots/portfolio-entry.png)
 
 [Reproduce the screenshots](docs/screenshots.md). Screenshots use only fictional seed records, never a developer's existing database.
 
@@ -82,7 +85,7 @@ FleetFlow is a **modular monolith**. One API and one database keep transactions,
 - **Infrastructure** implements EF mappings, SQL projections, PostgreSQL transactions, resource locks, migration and development seeding.
 - **API** handles HTTP binding, dedicated DTOs, validation, ProblemDetails and dependency injection. EF entities are never serialized as API contracts.
 
-The frontend is organized into dashboard, shipments, customers, drivers, vehicles, authentication, realtime and insights features. TanStack Query owns server state; local React state holds dialogs and deliberate edit snapshots. OpenAPI-generated types provide compile-time contracts and Zod checks responses at runtime.
+The frontend is organized into dashboard, shipments, customers, drivers, vehicles, authentication, demo, realtime and insights features. TanStack Query owns server state; local React state holds dialogs and deliberate edit snapshots. OpenAPI-generated types provide compile-time contracts and Zod checks responses at runtime.
 
 [Architecture and decisions](docs/architecture.md) · [API v1 contract](docs/api/v1.md) · [Real-time design](docs/realtime.md) · [Insights and optional AI](docs/insights.md)
 
@@ -200,7 +203,7 @@ The backend uses xUnit with Microsoft.Testing.Platform, **not VSTest**. Integrat
 
 The default E2E command runs Chromium, Firefox and WebKit; `test:e2e:all` remains an equivalent alias. Playwright is temporarily pinned to 1.64.1 because 1.65.0 exposes a confirmed Firefox ARIA-reflection crash during accessibility scans. No browser or WCAG rule is excluded. See the [M4.1 stabilization report](docs/m41-verification.md) for local results, the upgrade gate and the separate hosted-CI status.
 
-Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback ports **5180/5434/5174**. It applies migration/seed, verifies real user journeys, audits accessibility and tears down only its own test volume. It does not use or reset the development database. Keep those ports free and run one invocation at a time; each invocation uses one worker and test-owned resources.
+Playwright starts a separate disposable API/PostgreSQL/Vite stack on loopback ports **5180/5434/5174** (normal mode) and **5181/5175** (isolated portfolio mode). It applies migration/seed, verifies real user journeys, audits accessibility and tears down only its own test volume. It does not use or reset the development database. Keep those ports free and run one invocation at a time; each invocation uses one worker and test-owned resources.
 
 Coverage reports are generated under `artifacts/backend/` and `frontend/coverage/`. Inspect coverage to find missing behaviors, not to chase an arbitrary percentage. `python3 scripts/coverage-summary.py` prints per-suite/per-assembly results. Generated API contracts, EF migration/snapshot files and the frontend bootstrap are excluded from line metrics; migration execution is still tested.
 
@@ -214,7 +217,7 @@ Coverage reports are generated under `artifacts/backend/` and `frontend/coverage
 - **Frontend:** `npm ci`, lint, format, typecheck, component tests/coverage, production build and npm audit.
 - **E2E matrix:** Chromium, Firefox and WebKit against the actual isolated Docker stack, plus API type-drift and accessibility checks.
 
-The workflow uses read-only repository permissions, disabled checkout credential persistence, lockfile-based dependency caching and scoped diagnostic artifacts. It has no deployment step or deployment credentials. Dependabot configuration proposes reviewed dependency updates; it does not auto-merge them.
+The workflow uses read-only repository permissions, disabled checkout credential persistence, lockfile-based dependency caching and scoped diagnostic artifacts. The quality workflow has no deployment step or deployment credentials. A separate, optional `portfolio-initialize.yml` workflow is manual-only, uses a protected environment and initializes an already approved existing database; it never deploys or creates infrastructure. Dependabot configuration proposes reviewed dependency updates; it does not auto-merge them.
 
 **Hosted status:** workflow configuration is locally validated; successful GitHub-hosted execution must be confirmed after the changes are pushed. No green hosted-CI claim is implied. [CI design and validation](docs/ci.md)
 
@@ -241,11 +244,11 @@ See [configuration, quotas, security and manual token setup](docs/insights.md), 
 
 ## Security and limits
 
-Identity sessions, CSRF and server-enforced role policies secure logistics endpoints. This remains a **local portfolio application without production deployment readiness**. Local HTTP cookies and unencrypted-at-rest development Data Protection keys must not be reused as a public deployment configuration.
+Identity sessions, CSRF and server-enforced role policies secure logistics endpoints. M7 adds local public-demo preparation; actual hosted configuration and launch remain separately gated. Local HTTP cookies and unencrypted-at-rest development Data Protection keys must not be reused as a public deployment configuration.
 
 The API returns safe ProblemDetails, avoids unfiltered unexpected-exception logs, rejects unknown request fields and adds no-store/nosniff headers. The API container runs as non-root with a read-only root filesystem, temporary scratch space, dropped capabilities and no privilege escalation. The local database role remains privileged for development migration/seed; it is not a production service account.
 
-Before public deployment: verify HTTPS/proxy/host policies, encrypt and restrict the key ring, define MFA/account recovery and administrator bootstrap, add deployment-appropriate abuse controls, least-privilege database roles, managed secrets, operational logging/retention, backups/recovery and a deployment security review. Audit results are time-specific, not proof of absence of vulnerabilities. [Security review and threat model](docs/security.md) · [Identity architecture and limitations](docs/authentication.md)
+Before public deployment: verify the actual HTTPS/proxy/host settings, external certificate backups, restricted roles, free account settings, privacy notice, operational log retention and recovery rehearsal. Public demo mode exposes no administrator; normal-mode administrators still need an appropriate recovery/MFA strategy before any future non-demo production use. Audit results are time-specific, not proof of absence of vulnerabilities. [Security review and threat model](docs/security.md) · [Identity architecture and limitations](docs/authentication.md)
 
 Other boundaries: English UI and fixed Vienna display timezone; offset pagination can shift under concurrent writes; master records use existing last-write-wins update semantics; license category is informational; no multi-shipment trips, GPS, pricing, invoicing or export APIs. Ambiguous write failures require checking the record/list before retrying; create requests do not yet have idempotency keys.
 
@@ -256,10 +259,24 @@ Other boundaries: English UI and fixed Vienna display timezone; offset paginatio
 - **M4.1:** browser toolchain stabilization, repeated accessibility/interaction checks and CI diagnostics; five hosted baseline jobs reported green by the project owner.
 - **M5a:** Identity authentication, cookie/CSRF sessions, role policies, managed accounts and verified audit actors.
 - **M5b:** authenticated SignalR notifications, session revalidation, live query refresh and multi-user tests.
-- **Later, only after approval:** further deployment hardening.
+- **M7:** locally implemented portfolio access, bounded sandbox isolation, production configuration and controlled release preparation; verification is recorded separately.
 - **M6:** verified operational analytics and optional, explicit Cloudflare Workers AI assistance with persistent quotas and a credential-free test provider.
-- **Not started:** M7/mobile or public deployment.
+- **Not started:** public deployment and mobile functionality. M7 means portfolio preparation, not mobile.
 
 Private planning/instruction documents and actual credentials are excluded from Git and Docker build contexts. Nothing is publicly deployed by this repository.
 
 Licensed under [MIT](LICENSE).
+
+## Public portfolio mode — local rehearsal
+
+M7 adds a fixed pool of ten Viewer leases and three isolated Dispatcher sandboxes, with a maximum 30-minute lifetime, CSRF-protected entry and server-side abuse limits. Logistics data, history, insights and SignalR routing follow the validated server lease. Reset preserves Identity, encrypted Data Protection keys and all AI budgets. Normal development accounts and the original database schema remain supported.
+
+```sh
+python3 scripts/prepare-local-portfolio.py
+docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml build web
+docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml up -d --wait postgres
+docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml run --rm initialize
+docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml up -d web
+```
+
+Open `https://localhost:5443/demo` after trusting the generated **local** certificate. This separate Docker stack uses fictional data and no Cloudflare credentials; no cloud resources are needed. Persistent local secrets stay in ignored `.portfolio-local/`. See the [complete rehearsal and release instructions](docs/deployment.md), [sandbox security design](docs/portfolio-demo.md), [qualified zero-cost hosting assessment](ZERO_COST_DEPLOYMENT.md) and [M7 verification](docs/m7-verification.md).

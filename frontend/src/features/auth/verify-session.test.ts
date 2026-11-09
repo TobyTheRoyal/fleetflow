@@ -15,6 +15,25 @@ it('accepts the current cookie account without interrupting a workspace', async 
   await verifyCurrentUser(user.id)
   expect(events).not.toHaveBeenCalled()
 })
+it('rejects a reused demo account whose lease changed in another tab', async () => {
+  mockApi(() =>
+    json({
+      ...user,
+      demo: {
+        leaseId: '33333333-3333-4333-8333-333333333333',
+        mode: 'Dispatcher',
+        expiresAtUtc: new Date(Date.now() + 1800000).toISOString(),
+      },
+    }),
+  )
+  await expect(
+    verifyCurrentUser(
+      user.id,
+      undefined,
+      '22222222-2222-4222-8222-222222222222',
+    ),
+  ).rejects.toMatchObject({ code: 'account_changed', status: 401 })
+})
 it('locks a workspace when another tab changes its cookie account', async () => {
   mockApi(() => json(user))
   const events = vi.spyOn(window, 'dispatchEvent')

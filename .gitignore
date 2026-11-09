@@ -28,6 +28,12 @@ fleetflow_codex_pack/
 *.user
 *.suo
 *.log
+*.pfx
+*.p12
+*.key
+*.pfx.b64
+*.p12.b64
+.portfolio-local/
 
 # Local verification artifacts and coverage reports
 artifacts/

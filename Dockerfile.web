@@ -19,6 +19,8 @@ WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080 SERVE_SPA=true AI_ENABLED=false
 COPY --from=backend /app/publish ./
 COPY --from=frontend /ui/dist/ ./wwwroot/
+# Render runtime secret files are group-readable by GID 1000. No secret enters the build.
+RUN if ! getent group 1000 >/dev/null; then groupadd --gid 1000 render-secrets; fi && usermod -a -G 1000 app
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "FleetFlow.Api.dll"]

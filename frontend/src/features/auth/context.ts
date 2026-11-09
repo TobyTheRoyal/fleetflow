@@ -7,11 +7,21 @@ export const sessionSchema = z.object({
   displayName: z.string(),
   role: z.enum(['Admin', 'Dispatcher', 'Viewer']),
   active: z.boolean(),
+  demo: z
+    .object({
+      leaseId: z.uuid(),
+      mode: z.enum(['Viewer', 'Dispatcher']),
+      expiresAtUtc: z.iso.datetime({ offset: true }),
+    })
+    .nullable()
+    .optional(),
 }) satisfies z.ZodType<components['schemas']['SessionUser']>
 export type SessionUser = z.infer<typeof sessionSchema>
 export type SessionState = {
   user: SessionUser | null
   ready: boolean
+  portfolioMode?: boolean
+  demoExpired?: boolean
   locked: boolean
   signedIn: (user: SessionUser) => void
   logout: () => Promise<void>

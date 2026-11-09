@@ -75,7 +75,15 @@ DEMO_VIEWER_PASSWORD=${demoPasswords.Viewer}
       const logs = [
         `E2E stage: ${stage}`,
         compose('ps', '--all'),
-        compose('logs', '--no-color', '--tail', '100', 'api', 'postgres'),
+        compose(
+          'logs',
+          '--no-color',
+          '--tail',
+          '100',
+          'api',
+          'demo',
+          'postgres',
+        ),
       ]
         .join('\n')
         .replaceAll(password, '[REDACTED]')
@@ -110,14 +118,14 @@ DEMO_VIEWER_PASSWORD=${demoPasswords.Viewer}
     const deadline = Date.now() + 60000
     while (true) {
       try {
-        if (
-          (
-            await fetch('http://127.0.0.1:5180/health/ready', {
+        const readiness = await Promise.all(
+          [5180, 5181].map((port) =>
+            fetch(`http://127.0.0.1:${port}/health/ready`, {
               signal: AbortSignal.timeout(2000),
-            })
-          ).ok
+            }),
+          ),
         )
-          break
+        if (readiness.every((response) => response.ok)) break
       } catch {
         /* startup */
       }
@@ -125,15 +133,27 @@ DEMO_VIEWER_PASSWORD=${demoPasswords.Viewer}
         throw new Error('E2E API did not become ready.')
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
-    if (process.env.CHECK_API_CONTRACT === '1') {
+    if (
+      process.env.CHECK_API_CONTRACT === '1' ||
+      process.env.UPDATE_API_CONTRACT === '1'
+    ) {
       stage = 'checking generated API contract'
-      execFileSync('npm', ['run', 'check:api'], {
-        stdio: 'inherit',
-        env: {
-          ...process.env,
-          OPENAPI_URL: 'http://127.0.0.1:5180/openapi/v1.json',
+      execFileSync(
+        'npm',
+        [
+          'run',
+          process.env.UPDATE_API_CONTRACT === '1'
+            ? 'generate:api'
+            : 'check:api',
+        ],
+        {
+          stdio: 'inherit',
+          env: {
+            ...process.env,
+            OPENAPI_URL: 'http://127.0.0.1:5180/openapi/v1.json',
+          },
         },
-      })
+      )
     }
     stage = 'provisioning authenticated test contexts'
     for (const role of ['Admin', 'Dispatcher', 'Viewer']) {

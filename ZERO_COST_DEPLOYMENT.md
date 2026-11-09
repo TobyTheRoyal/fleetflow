@@ -1,59 +1,53 @@
-# Future zero-additional-cost deployment assessment
+# Zero-additional-cost portfolio deployment preparation
 
-**Preparation only — nothing is deployed by M6.** FleetFlow currently remains local. This guide is a reviewed candidate architecture, not a promise of permanent free availability or an already hardened production deployment. Provider conditions were checked on **2026-11-08**; verify them again in your own accounts before activation. Stop if any step requires a credit card, billing activation, prepaid credits or a paid plan.
+**M7 is implemented locally; nothing is deployed.** No account, cloud resource, billing setting or paid service was created or activated. A separate approval is required for every external setup/release. Provider assumptions were rechecked against official documentation on **2026-11-09** and must be checked again in the actual accounts. A free plan is not a promise of permanent zero-cost availability.
 
-## Candidate architecture
+## Target architecture
 
 ```mermaid
 flowchart LR
-    Employer[Employer browser] -->|HTTPS one origin| Web[Render Free Docker web service]
-    Web --> SPA[Built React assets]
-    Web --> API[ASP.NET Core + Identity + SignalR]
-    API -->|TLS| PG[(Neon Free PostgreSQL)]
-    API -->|explicit bounded request| AI[Cloudflare Workers AI / Workers Free]
+    Visitor[Employer browser] -->|one HTTPS origin| Render[Render Free / Dockerfile.web]
+    Render --> React[React production assets]
+    Render --> API[ASP.NET Core / Identity / SignalR]
+    API -->|VerifyFull TLS / direct connections| Neon[(Neon Free PostgreSQL)]
+    API -->|explicit approved request only| AI[Cloudflare Workers AI Free]
 ```
 
-The application and inference run independently of a developer's computer. React and API share an origin; cookies/CSRF and SignalR do not need broad CORS. Use provider-supplied HTTPS hostnames: buying a domain is optional and unnecessary. No Worker script, Gateway, Ollama, background worker, external paid monitoring or keep-alive traffic is required.
+One service and one persistent database operate independently of the developer's computer. Use provider-supplied HTTPS hostnames; no domain purchase, Worker script, Gateway, Ollama host, paid monitoring, cron or wake-up traffic is required. React and API share cookies/CSRF and the same origin. Public visitors use bounded passwordless Viewer or isolated Dispatcher leases, never Admin credentials. See [demo isolation](docs/portfolio-demo.md) and the [deployment/recovery runbook](docs/deployment.md).
 
-`Dockerfile.web` packages the actual React production build into ASP.NET `wwwroot`, runs non-root, enables known SPA route fallbacks and accepts a provider `PORT`. It is an optional packaging artifact, **not** deployment automation. Normal local Compose still uses the split Vite/API arrangement. Build it locally with:
+## Verified free-plan assumptions
 
-```sh
-docker build -f Dockerfile.web -t fleetflow-web:local .
-```
-
-A successful image build does not verify hosted networking, TLS, secrets, database permissions or production access control configuration.
-
-## Free services and trade-offs
-
-| Component | Official basis and current limits | Manual checks / limitations |
+| Service | Current official basis | Required account decision |
 | --- | --- | --- |
-| Web | [Render Free services](https://render.com/docs/free), [first deployment](https://render.com/docs/your-first-deploy): free web services support Docker; 750 free instance hours/workspace/month; idle services sleep after 15 minutes | Verify a genuinely free/no-card account and instance type. Review workspace bandwidth/build-minute quotas and no-payment suspension behavior. Cold starts delay UI/API/SignalR. A continuously active WebSocket may keep a service active; hours still apply. Do not generate keep-alive traffic. Local filesystem is ephemeral. |
-| Database | [Neon plans](https://neon.com/docs/introduction/plans): Free currently includes 100 CU-hours/project/month, 1 GB/project storage (20 GB across projects), 5 GB public egress and scale-to-zero after five idle minutes | Verify actual dashboard limits, supported PostgreSQL version/extensions and region. Use a persistent root branch, not an expiring preview branch. Keep within compute/storage/egress caps; expect suspension/limits and cold connection latency. Free persistence is not a permanent-service or backup guarantee. |
-| Inference | [Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and [free model confirmation](https://developers.cloudflare.com/changelog/post/2026-07-28-models-require-workers-paid/): Workers Free, GLM-4.7-Flash, 10,000 Neurons/account/UTC day | Never enable Workers Paid, paid-only models, automatic upgrades, AI Gateway credits or paid Gateway inference. Verify account/terms/fictional dataset/model manually, renew FleetFlow's attestation at most weekly, retain strict budgets. Exhaustion means deterministic-only mode. |
+| Render | [Free services](https://render.com/docs/free): Docker web services, managed HTTPS, 750 shared instance-hours/month; idle sleep after 15 minutes, ephemeral filesystem, no free shell/one-off jobs or persistent disk | Choose Free, disable auto-deploy, add no payment method or paid extras. Cold starts can take about a minute. No-payment excess bandwidth suspends services; excess build minutes blocks builds. High external traffic can also cause suspension. Never upgrade to resolve exhaustion. |
+| Neon | [Plans](https://neon.com/docs/introduction/plans): Free currently includes 100 CU-hours/project, 1 GB/project storage, 5 GB public transfer and five-minute scale-to-zero | Use an ordinary persistent root branch, not an expiring preview/trial. Choose a compatible PostgreSQL version/region, direct endpoint and small pools. Verify the actual quota dashboard and no-card signup. No SLA, unlimited retention or independent backup is implied. |
+| Cloudflare | [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and [GLM model](https://developers.cloudflare.com/workers-ai/models/glm-4.7-flash/): Workers Free allocation is 10,000 Neurons/account/UTC day; GLM-4.7-Flash remains the approved model | Keep Workers Free; no Paid plan, paid-only models, Gateway inference/credits or billing activation. Provider exhaustion stops requests. FleetFlow's 3/user and 20/global attempts/day do not guarantee the account stays within provider quota. |
 
-These are independent providers with shared/account-level limits. A free quota can change, be withdrawn, sleep, throttle or suspend. No SLA or uninterrupted employer-demo availability is promised. Prefer a minimal dataset and a single small service; benchmark nothing with invented metrics. Do not solve a free limit by adding paid resources.
+Do not use Render Free PostgreSQL: its documented database expires after 30 days. Do not store data or key-ring state on Render's application filesystem. No service's future pricing or availability can be guaranteed. If signup/configuration demands a credit card or paid subscription, stop and report it; no such account flow has been executed by M7.
 
-**Do not use Render Free PostgreSQL for this demo:** its documented free database expires after 30 days. Ephemeral SQLite/container storage and temporary trial databases also do not meet the persistence requirement. Neon root-branch storage is the durable candidate, subject to the provider's actual retention/account terms. If Neon introduces mandatory expiry/payment for your selected configuration, stop and reassess before deploying.
+## Manual account and release prerequisites
 
-## Mandatory manual prerequisites before any deployment
+1. Obtain explicit approval before creating any external resource. Inspect all account plans, payment methods, quotas and automatic upgrade settings; use only free/no-card options.
+2. Later create a Render **Free Docker web service**, with `Dockerfile.web`, health path `/health`, manual releases and the supplied HTTPS hostname. Do not deploy until database initialization, proxy trust and runtime secrets are ready. Render Free has no one-off jobs: run schema initialization from a controlled local image or the explicitly approved manual GitHub maintenance workflow.
+3. Later create Neon Free in a suitable region with a persistent root branch. Confirm supported PostgreSQL version by rehearsing migrations and the restricted roles. Follow [Neon's role guidance](https://neon.com/docs/manage/roles): create runtime/maintenance logins with SQL, not administrative Console/API defaults. Use the direct endpoint, VerifyFull and pool limits of ten/two. Do not substitute transaction-mode pooling.
+4. Create and independently back up the Data Protection certificate/private key outside Git. Upload only as runtime secret files, with password in environment secrets. Render's [runtime secret files](https://render.com/docs/docker-secrets) are under `/etc/secrets`; the image supports their group permissions. No certificate is generated by app startup or embedded in an image.
+5. Resolve the **actual trusted ingress proxy peer/range** before exposing the service. No verified universal Render ingress range is assumed by this implementation. Obtain a supported narrow configuration from the host, test forwarded HTTPS/client IPs and reject spoofed headers. Do not use outbound IP ranges, all private networks or wildcard trust. Without this verification public launch remains blocked.
+6. Configure exact origin/hosts and the external runtime/maintenance settings from `deployment/production.env.example`; keep owner credentials exclusively in the explicit initialization/release process. Apply `--portfolio-init` for one reviewed commit; use a protected GitHub Environment if choosing the manual workflow. No startup migrations and no automatic deployment occur.
+7. Validate HTTPS login/logout, role/CSRF checks, certificate persistence, lease reset/isolation, SignalR, restart recovery, browser compatibility and quotas on the actual host before sharing access. Keep an independent encrypted backup and rehearse restore. Free-provider restore history is not the backup plan.
+8. Keep `AI_ENABLED=false` initially. Only after a separate manual Cloudflare review should server credentials, exact model, fictional-data/terms flags, seven-day approval and individual demo-account IDs be configured. Public entry never grants inference automatically. Do not test live inference during deployment without explicit authorization.
 
-1. Obtain separate explicit approval to deploy; M6 provides none. Verify all three current free plans without adding payment methods or enabling credits. Set no automatic upgrade, inspect any default paid extras and disable them. If signup requires billing, stop.
-2. Read the Cloudflare/model [setup, EEA and privacy assessment](docs/insights.md#cloudflare-setup--manual-optional-no-paid-activation), provider AUP/terms/DPA and hosting/database data-location conditions. No EEA paid-only inference condition was found in the reviewed Cloudflare terms; that is not legal clearance or EU-only residency. Publish appropriate privacy, fictional-data and AI notices before public access.
-3. Finish the existing [security deployment blockers](docs/security.md) and [Identity limitations](docs/authentication.md). In particular, define a safe one-time administrator bootstrap/account recovery process; Development seeding must **not** be enabled publicly. Create controlled demo accounts and keep user administration private. Public self-registration stays disabled.
-4. Configure Production, precise `AllowedHosts`, HTTPS-only cookies, TLS and trusted forwarded headers for the actual reverse proxy. The current SignalR origin guard compares request scheme/host: TLS termination must be tested with a narrowly trusted proxy/origin configuration. **M6 has not implemented or verified Render proxy trust.** Never trust arbitrary forwarding headers, add wildcard CORS or disable CSRF to make it work.
-5. Use a least-privilege application PostgreSQL role over verified TLS; isolate migration ownership. Configure the real connection string in hosting secrets, never in an image, README or frontend. Verify Npgsql/Neon connection/pooling behavior and PostgreSQL-version migration compatibility on a disposable branch before production data.
-6. Apply all versioned migrations using a reviewed release/migration procedure. The current `--migrate`, seed and demo-user CLI deliberately require Development; they are **not a production migration/bootstrap workflow**. Design and verify that separate procedure before deployment. Preserve the root branch/data; never run reset-demo against hosted data.
-7. Persist and encrypt Data Protection keys appropriately outside the ephemeral web filesystem. The existing PostgreSQL key store persists keys but development does not encrypt them at rest at the application layer. Arrange a no-cost supported protection/rotation approach or explicitly reassess this blocker. Restarts/scale changes must preserve expected cookie validation; test revoke/logout/expiry over the actual proxy.
-8. Configure a single API instance initially. In-memory login rate limits and SignalR connections are instance-local. PostgreSQL AI budget locks are shared/persistent, but SignalR has no distributed backplane/outbox. Sleep/restart can lose hints; REST reconciliation recovers current state, not missed event delivery. Do not claim multi-instance reliability.
-9. Keep `AI_ENABLED=false` initially. After verifying an entirely fictional hosted dataset and free Cloudflare account, set server-only credentials, model, explicitly allowlisted demo Identity IDs and the expiring review flags. No live call is needed during deployment. A deliberate later user action is the only permitted inference trigger.
-10. Verify HTTPS browser behavior, origin/CSRF checks, role permissions, account deactivation, quota exhaustion, cold starts, data persistence and recovery. Run hosted CI for the exact revision. Add safe operational log retention, dependency updates, abuse controls and independently stored backups with a tested restore plan. Verify any backup storage/export path is free; do not silently purchase one.
+## EEA, privacy and inference
 
-## Cost and privacy risk
+The existing [Cloudflare/AI assessment](docs/insights.md) remains applicable: no reviewed EEA paid-only condition was identified, but this is not legal clearance, an EU-only residency promise or verification of a specific account. Review current Cloudflare/model terms, acceptable-use conditions, cross-border processing and a suitable public privacy notice manually. Never introduce real customer/driver/contact data into this demonstration. The model receives minimized verified facts and opaque IDs, not free-form database prose or secrets.
 
-FleetFlow has no billing API, automatic provider switch, paid-model fallback or subscription-upgrade code. Its application caps are 3 attempts/user/day, 20 global/day, one global in-flight request and 500 output tokens; reservations and provider-exhaustion cooldowns survive restarts. These protect usage but **cannot prove account-level zero cost**. Another app can consume the account quota, a human can upgrade a plan, and providers can change terms or quotas. The application cannot query/verify your actual billing plan; manual verification and expiring enablement are deliberate safeguards.
+The approved model/provider never switches automatically. Daily persistent budgets, one concurrent global generation, 500 output tokens, bounded input, short timeout and no retry/background generation remain enforced. Sandbox reset preserves budgets and lease-specific fingerprints prevent cached explanations crossing visits. An unavailable provider or expired approval leaves deterministic insights fully operational. No live inference request is part of M7.
 
-Do not provide a real Cloudflare token to CI. Never upload an actual `.env`, password, connection string or authenticated trace. Cloudflare processes only minimized fictional facts when explicitly requested, but cross-border processing/metadata and provider terms still require review. If any required service ceases to be usable free without billing, disable inference or suspend the demo and explain the limit rather than upgrading automatically.
+## Free-host operations and remaining limits
 
-## Verification status
+Render or Neon may sleep, suspend, restart or change quotas. Hidden browser tabs disconnect SignalR; visible reconnect revalidates the session and refetches REST data. No keep-alive service is introduced. The single-instance SignalR registry and IP limiters are intentionally instance-local; there is no distributed backplane or durable notification outbox. PostgreSQL quotas and lease reservations remain persistent.
 
-M6 verifies the local Docker packaging, database migration and fake-provider browser journeys; see [the M6 verification report](docs/m6-verification.md). No Render, Neon or Cloudflare account was created, no billing enabled, no real inference requested and no public service deployed. Provisioning, provider-side configuration, HTTPS/proxy hardening and hosted runtime behavior remain future manual work.
+Demo capacity is ten Viewer leases and three Dispatcher sandboxes, at most 30 minutes each. Per-lease write limits and reset-on-reuse bound visitor growth, but a distributed attacker can exhaust capacity or provider resource quotas. Viewer sample dates age until reviewed refresh. Database schema evolution beyond M7 requires a reviewed corresponding fixed-schema upgrade; downgrade to M6 is forbidden. Costs are controlled by staying on Free without billing, not by invented cost guarantees. If a free service becomes unsuitable, disable external AI or suspend the demo; do not purchase an upgrade.
+
+## Verification and approval boundary
+
+Local results are recorded in [M7 verification](docs/m7-verification.md). Hosted CI for the M7 working tree, Neon role behavior, Render proxy/network behavior and public HTTPS operation remain unverified until a later approved release. The previously green M6 commit does not verify these new unpushed changes. Account creation, hosted secrets, the manual schema-maintenance workflow, external initialization, deployment and any real inference all require separate explicit approval. No resource creation or release was performed locally.

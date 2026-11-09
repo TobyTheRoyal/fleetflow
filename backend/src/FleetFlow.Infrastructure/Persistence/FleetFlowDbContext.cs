@@ -4,17 +4,22 @@ using FleetFlow.Domain.Shipments;
 using FleetFlow.Domain.Vehicles;
 using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Insights;
+using FleetFlow.Infrastructure.Portfolio;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace FleetFlow.Infrastructure.Persistence;
 
-public sealed class FleetFlowDbContext(DbContextOptions<FleetFlowDbContext> options) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
+public sealed class FleetFlowDbContext(DbContextOptions<FleetFlowDbContext> options, PortfolioScope? portfolio = null) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
 {
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
     public DbSet<AiAttempt> AiAttempts => Set<AiAttempt>();
+    public DbSet<PortfolioSlot> PortfolioSlots => Set<PortfolioSlot>();
+    public string? SandboxSchema => portfolio?.Schema;
+    public string SqlTable(string table) => SandboxSchema is null ? $"\"{table}\"" : $"\"{SandboxSchema}\".\"{table}\"";
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Driver> Drivers => Set<Driver>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
@@ -24,13 +29,17 @@ public sealed class FleetFlowDbContext(DbContextOptions<FleetFlowDbContext> opti
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.Entity<ApplicationUser>().Property(x => x.DisplayName).HasMaxLength(150);
-        modelBuilder.Entity<ApplicationUser>().Property(x => x.CreatedAtUtc).HasColumnType("timestamp with time zone");
-        modelBuilder.Entity<ApplicationUser>().HasIndex(x => x.NormalizedEmail).IsUnique();
-        for (var i = 0; i < FleetRoles.All.Length; i++)
-            modelBuilder.Entity<IdentityRole<Guid>>().HasData(new IdentityRole<Guid>(FleetRoles.All[i])
-            { Id = FleetRoles.Id(i), NormalizedName = FleetRoles.All[i].ToUpperInvariant(), ConcurrencyStamp = FleetRoles.Id(i).ToString() });
+        IdentityPersistence.ConfigureIdentity(modelBuilder);
         modelBuilder.HasSequence<long>("ShipmentNumberSequence");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FleetFlowDbContext).Assembly);
+        if (SandboxSchema is { } schema)
+            foreach (var type in new[] { typeof(Customer), typeof(Driver), typeof(Vehicle), typeof(Shipment), typeof(ShipmentEvent) })
+                modelBuilder.Entity(type).ToTable(modelBuilder.Entity(type).Metadata.GetTableName()!, schema);
     }
+}
+
+public sealed class PortfolioModelCacheKey : IModelCacheKeyFactory
+{
+    public object Create(DbContext context, bool designTime) => context is FleetFlowDbContext fleet
+        ? (context.GetType(), fleet.SandboxSchema, designTime) : (object)(context.GetType(), designTime);
 }

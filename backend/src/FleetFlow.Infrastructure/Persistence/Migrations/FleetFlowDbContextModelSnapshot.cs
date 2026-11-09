@@ -379,6 +379,9 @@ namespace FleetFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
 
@@ -484,6 +487,47 @@ namespace FleetFlow.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_AiAttempts_Fingerprint", "length(\"Fingerprint\") = 64");
 
                             t.HasCheckConstraint("CK_AiAttempts_Lease", "\"LeaseExpiresAtUtc\" > \"StartedAtUtc\"");
+                        });
+                });
+
+            modelBuilder.Entity("FleetFlow.Infrastructure.Portfolio.PortfolioSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Ready")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SchemaName")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Writes")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("PortfolioSlots", "public", t =>
+                        {
+                            t.HasCheckConstraint("CK_PortfolioSlots_Bounds", "\"Id\" BETWEEN 1 AND 13 AND \"Role\" IN ('Viewer','Dispatcher') AND \"Writes\" >= 0");
                         });
                 });
 
@@ -688,6 +732,15 @@ namespace FleetFlow.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("FleetFlow.Infrastructure.Insights.AiAttempt", b =>
+                {
+                    b.HasOne("FleetFlow.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FleetFlow.Infrastructure.Portfolio.PortfolioSlot", b =>
                 {
                     b.HasOne("FleetFlow.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()

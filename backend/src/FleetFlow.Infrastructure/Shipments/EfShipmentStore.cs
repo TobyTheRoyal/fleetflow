@@ -24,9 +24,9 @@ internal sealed class EfShipmentStore(FleetFlowDbContext db, EfTransaction trans
     public async Task<(Driver Driver, Vehicle Vehicle)> LockResourcesAsync(Guid driverId, Guid vehicleId, CancellationToken cancellationToken)
     {
         // Always acquire Driver before Vehicle. ReadCommitted rechecks overlap after waiting for these locks.
-        var driver = await db.Drivers.FromSqlInterpolated($"SELECT * FROM \"Drivers\" WHERE \"Id\" = {driverId} FOR UPDATE")
+        var driver = await db.Drivers.FromSqlRaw(string.Concat("SELECT * FROM ", db.SqlTable("Drivers"), " WHERE \"Id\" = {0} FOR UPDATE"), driverId)
             .SingleOrDefaultAsync(cancellationToken) ?? throw FleetFlowException.NotFound("driver");
-        var vehicle = await db.Vehicles.FromSqlInterpolated($"SELECT * FROM \"Vehicles\" WHERE \"Id\" = {vehicleId} FOR UPDATE")
+        var vehicle = await db.Vehicles.FromSqlRaw(string.Concat("SELECT * FROM ", db.SqlTable("Vehicles"), " WHERE \"Id\" = {0} FOR UPDATE"), vehicleId)
             .SingleOrDefaultAsync(cancellationToken) ?? throw FleetFlowException.NotFound("vehicle");
         return (driver, vehicle);
     }

@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using FleetFlow.Application.Insights;
 using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
+using FleetFlow.Infrastructure.Portfolio;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace FleetFlow.Api.Security;
 
@@ -28,8 +30,8 @@ public static class SessionSecurity
             options.Password.RequiredUniqueChars = 6;
             options.Lockout.MaxFailedAccessAttempts = 5;
             options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-        }).AddEntityFrameworkStores<FleetFlowDbContext>().AddDefaultTokenProviders();
-        services.AddDataProtection().SetApplicationName("FleetFlow").PersistKeysToDbContext<FleetFlowDbContext>();
+        }).AddEntityFrameworkStores<IdentityPersistence>().AddDefaultTokenProviders();
+        services.AddDataProtection().SetApplicationName("FleetFlow").PersistKeysToDbContext<IdentityPersistence>();
         services.ConfigureApplicationCookie(options =>
         {
             options.Cookie.Name = "FleetFlow.Session";
@@ -65,13 +67,16 @@ public static class SessionSecurity
         });
         services.AddRateLimiter(options =>
         {
+            options.AddPolicy("demo-entry", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = context.RequestServices.GetRequiredService<PortfolioSettings>().EntryPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "local",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.OnRejected = async (context, token) =>
             {
                 context.HttpContext.Response.Headers.RetryAfter = "60";
-                await Problem(context.HttpContext, 429, "login_rate_limited", "Too many login attempts. Try again later.").ExecuteAsync(context.HttpContext);
+                await Problem(context.HttpContext, 429, context.HttpContext.Request.Path.StartsWithSegments("/api/v1/demo") ? "demo_entry_rate_limited" : "login_rate_limited", "Too many attempts. Try again later.").ExecuteAsync(context.HttpContext);
             };
         });
         return services;
@@ -81,17 +86,21 @@ public static class SessionSecurity
         statusCode: status, detail: detail, extensions: new Dictionary<string, object?> { ["code"] = code, ["traceId"] = context.TraceIdentifier });
 }
 
-public sealed class SessionCookieEvents(SignInManager<ApplicationUser> signIn) : CookieAuthenticationEvents
+public sealed class SessionCookieEvents(SignInManager<ApplicationUser> signIn, IdentityPersistence db, PortfolioScope scope, PortfolioSettings settings, TimeProvider clock) : CookieAuthenticationEvents
 {
     public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
     {
         // Identity validates its own stamp. Check on every request for immediate revocation.
         var user = context.Principal is null ? null : await signIn.ValidateSecurityStampAsync(context.Principal);
-        if (user is null || !user.IsActive)
+        PortfolioSlot? slot = null;
+        if (user is { IsDemo: true } && Guid.TryParse(context.Principal?.FindFirstValue("portfolio_lease"), out var lease))
+            slot = await db.PortfolioSlots.AsNoTracking().SingleOrDefaultAsync(s => s.UserId == user.Id && s.LeaseId == lease && s.Ready && s.ExpiresAtUtc > clock.GetUtcNow(), context.HttpContext.RequestAborted);
+        if (user is null || !user.IsActive || (settings.Enabled && (!user.IsDemo || slot is null || context.Principal?.IsInRole(slot.Role) != true)) || (!settings.Enabled && user.IsDemo))
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
         }
+        else if (slot is not null) scope.Bind(slot);
     }
     public override Task RedirectToLogin(RedirectContext<CookieAuthenticationOptions> context) =>
         SessionSecurity.Problem(context.HttpContext, 401, "authentication_required", "Sign in to continue.").ExecuteAsync(context.HttpContext);

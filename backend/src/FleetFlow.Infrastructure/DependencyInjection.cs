@@ -9,9 +9,11 @@ using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Insights;
 using FleetFlow.Infrastructure.Persistence;
 using FleetFlow.Infrastructure.Persistence.Seeding;
+using FleetFlow.Infrastructure.Portfolio;
 using FleetFlow.Infrastructure.Queries;
 using FleetFlow.Infrastructure.Shipments;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -22,11 +24,17 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton(PortfolioSettings.Read(configuration));
+        services.AddScoped<PortfolioScope>();
+        services.AddScoped<PortfolioService>();
+        services.AddScoped<PortfolioInitializer>();
+        services.AddSingleton<PortfolioRequestLimiter>();
+        services.AddDbContext<IdentityPersistence>(options => options.UseNpgsql(configuration.GetConnectionString("FleetFlow")));
         services.AddDbContext<FleetFlowDbContext>(options =>
         {
             var connectionString = configuration.GetConnectionString("FleetFlow")
                 ?? throw new InvalidOperationException("Configure ConnectionStrings: FleetFlow before using the database.");
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(connectionString).ReplaceService<IModelCacheKeyFactory, PortfolioModelCacheKey>();
         });
 
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);

@@ -18,3 +18,10 @@ artifacts
 **/playwright-report
 
 **/._*
+**/*.pfx
+**/*.p12
+**/*.key
+**/*.pfx.b64
+**/*.p12.b64
+.portfolio-local
+deployment

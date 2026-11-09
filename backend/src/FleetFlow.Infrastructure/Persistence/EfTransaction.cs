@@ -83,7 +83,7 @@ internal sealed class EfTransaction(FleetFlowDbContext db, ILogisticsNotifier no
                 result.Add(new(Guid.CreateVersion7(), value.Item1, value.Item2,
                     value.Item1 + (entry.State == EntityState.Added ? "Created" : "Updated"), null, clock.GetUtcNow()));
         }
-        return result;
+        return result.Select(notification => notification with { Sandbox = db.SandboxSchema }).ToList();
     }
 
     private static bool IsReservationConcurrencyFailure(Exception exception)

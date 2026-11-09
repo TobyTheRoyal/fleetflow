@@ -16,10 +16,10 @@ internal sealed class EfFleetStore(FleetFlowDbContext db, EfTransaction transact
     public void AddDriver(Driver driver) => db.Drivers.Add(driver);
     public void AddVehicle(Vehicle vehicle) => db.Vehicles.Add(vehicle);
     public async Task<Driver> LockDriverAsync(Guid id, CancellationToken token) =>
-        await db.Drivers.FromSqlInterpolated($"SELECT * FROM \"Drivers\" WHERE \"Id\" = {id} FOR UPDATE").SingleOrDefaultAsync(token)
+        await db.Drivers.FromSqlRaw(string.Concat("SELECT * FROM ", db.SqlTable("Drivers"), " WHERE \"Id\" = {0} FOR UPDATE"), id).SingleOrDefaultAsync(token)
         ?? throw FleetFlowException.NotFound("driver");
     public async Task<Vehicle> LockVehicleAsync(Guid id, CancellationToken token) =>
-        await db.Vehicles.FromSqlInterpolated($"SELECT * FROM \"Vehicles\" WHERE \"Id\" = {id} FOR UPDATE").SingleOrDefaultAsync(token)
+        await db.Vehicles.FromSqlRaw(string.Concat("SELECT * FROM ", db.SqlTable("Vehicles"), " WHERE \"Id\" = {0} FOR UPDATE"), id).SingleOrDefaultAsync(token)
         ?? throw FleetFlowException.NotFound("vehicle");
     public Task<bool> HasActiveDriverReservationAsync(Guid id, CancellationToken token) => db.Shipments.AsNoTracking().AnyAsync(s =>
         s.AssignedDriverId == id && (s.Status == ShipmentStatus.Planned || s.Status == ShipmentStatus.InTransit), token);

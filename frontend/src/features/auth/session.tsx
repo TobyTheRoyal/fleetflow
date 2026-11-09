@@ -14,7 +14,13 @@ import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ErrorNotice, Skeleton } from '@/components/shared/Feedback'
 import { LoginForm } from './LoginForm'
-export function SessionProvider({ children }: { children: ReactNode }) {
+export function SessionProvider({
+  children,
+  portfolioMode = false,
+}: {
+  children: ReactNode
+  portfolioMode?: boolean
+}) {
   const cache = useQueryClient()
   const [override, setUser] = useState<SessionUser | null | undefined>(
     undefined,
@@ -28,19 +34,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const user = override === undefined ? (restored.data ?? null) : override
   const ready = override !== undefined || !restored.isPending
   const [locked, setLocked] = useState(false)
+  const [demoExpired, setDemoExpired] = useState(false)
   const [error, setError] = useState<unknown>(null)
   useEffect(() => {
-    const expire = () => setLocked(true)
+    const expire = () => {
+      if (user?.demo) {
+        resetCsrf()
+        cache.clear()
+        setUser(null)
+        setLocked(false)
+        setDemoExpired(true)
+      } else setLocked(true)
+    }
     window.addEventListener('fleetflow:unauthorized', expire)
     return () => window.removeEventListener('fleetflow:unauthorized', expire)
     // Restoration runs once; mutations control subsequent session changes.
-  }, [])
+  }, [user?.demo, cache])
+  useEffect(() => {
+    if (!user?.demo) return
+    const timer = setTimeout(
+      () => window.dispatchEvent(new Event('fleetflow:unauthorized')),
+      Math.max(0, Date.parse(user.demo.expiresAtUtc) - Date.now()),
+    )
+    return () => clearTimeout(timer)
+  }, [user?.demo])
   const signedIn = (next: SessionUser) => {
     resetCsrf()
-    if (user?.id !== next.id) cache.clear()
+    if (user?.id !== next.id || user?.demo?.leaseId !== next.demo?.leaseId)
+      cache.clear()
     else void cache.invalidateQueries()
     setUser(next)
     setLocked(false)
+    setDemoExpired(false)
   }
   const logout = async () => {
     try {
@@ -58,6 +83,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setLocked(false)
     setError(null)
+    setDemoExpired(false)
   }
   const restorationError =
     restored.error instanceof ApiError && restored.error.status === 401
@@ -73,8 +99,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       </div>
     )
   return (
-    <SessionContext.Provider value={{ user, ready, locked, signedIn, logout }}>
-      <Fragment key={user?.id ?? 'anonymous'}>{children}</Fragment>
+    <SessionContext.Provider
+      value={{
+        user,
+        ready,
+        locked,
+        signedIn,
+        logout,
+        portfolioMode,
+        demoExpired,
+      }}
+    >
+      <Fragment
+        key={user ? `${user.id}:${user.demo?.leaseId ?? ''}` : 'anonymous'}
+      >
+        {children}
+      </Fragment>
       {locked && user && (
         <Dialog
           open
@@ -110,7 +150,8 @@ export function ProtectedRoute({
   const session = useSession()
   const manage = useCanManage()
   if (!session.ready) return <Skeleton />
-  if (!session.user) return <Navigate to="/login" replace />
+  if (!session.user)
+    return <Navigate to={session.portfolioMode ? '/demo' : '/login'} replace />
   if ((write && !manage) || (admin && session.user.role !== 'Admin'))
     return (
       <div className="p-8">

@@ -1,12 +1,16 @@
+import { useSession } from '@/features/auth/context'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, RefreshCw } from 'lucide-react'
 import { getReadiness } from '@/lib/health'
 import { Button } from '@/components/ui/button'
 export function SystemHealth() {
+  const { user } = useSession()
   const health = useQuery({
     queryKey: ['health', 'ready'],
     queryFn: ({ signal }) => getReadiness(signal),
-    refetchInterval: 60000,
+    refetchInterval: user?.demo
+      ? false
+      : () => (document.visibilityState === 'hidden' ? false : 60000),
   })
   const message = health.isPending
     ? 'Checking API and database connection…'

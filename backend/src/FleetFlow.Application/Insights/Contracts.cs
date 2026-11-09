@@ -50,10 +50,11 @@ public static class InsightJson
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         PropertyNameCaseInsensitive = false
     };
-    public static string Fingerprint(IReadOnlyList<OperationalFinding> findings, IReadOnlyDictionary<string, int> counts) =>
+    public static string Fingerprint(IReadOnlyList<OperationalFinding> findings, IReadOnlyDictionary<string, int> counts, string? contextKey = null) =>
         Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
         {
-            ContractVersion = "m6-controlled-summary-v1",
+            ContractVersion = "m7-scoped-summary-v1",
+            ContextKey = contextKey,
             Counts = counts.OrderBy(x => x.Key),
             Findings = findings.Select(f => new { f.FindingId, f.Severity, f.Evidence, f.ShipmentNumber })
         }, Options)));

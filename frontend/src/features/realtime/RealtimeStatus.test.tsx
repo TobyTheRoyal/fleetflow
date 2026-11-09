@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { expect, it, vi } from 'vitest'
 import { SessionContext, type SessionUser } from '@/features/auth/context'
@@ -15,6 +15,36 @@ const user: SessionUser = {
   role: 'Dispatcher',
   active: true,
 }
+it('disconnects hidden tabs and revalidates when the tab becomes visible', () => {
+  const cleanup = vi.fn()
+  vi.mocked(manageConnection).mockReturnValue(cleanup)
+  const visibility = vi
+    .spyOn(document, 'visibilityState', 'get')
+    .mockReturnValue('visible')
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <SessionContext.Provider
+        value={{
+          user,
+          locked: false,
+          ready: true,
+          signedIn: vi.fn(),
+          logout: vi.fn(),
+        }}
+      >
+        <RealtimeStatus />
+      </SessionContext.Provider>
+    </QueryClientProvider>,
+  )
+  expect(manageConnection).toHaveBeenCalledOnce()
+  visibility.mockReturnValue('hidden')
+  act(() => document.dispatchEvent(new Event('visibilitychange')))
+  expect(cleanup).toHaveBeenCalledOnce()
+  visibility.mockReturnValue('visible')
+  act(() => document.dispatchEvent(new Event('visibilitychange')))
+  expect(manageConnection).toHaveBeenCalledTimes(2)
+  visibility.mockRestore()
+})
 it('only connects for an authenticated unlocked session and cleans up on expiry', () => {
   const cleanup = vi.fn()
   vi.mocked(manageConnection).mockReturnValue(cleanup)

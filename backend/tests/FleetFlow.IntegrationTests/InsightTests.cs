@@ -366,7 +366,7 @@ public sealed class InsightTests(PostgreSqlFixture postgres) : IClassFixture<Pos
             Assert.False(await db.Database.SqlQueryRaw<bool>("SELECT to_regclass('public.\"AiAttempts\"') IS NOT NULL AS \"Value\"").SingleAsync(Token));
             await migrator.MigrateAsync(cancellationToken: Token);
             var migrations = await db.Database.GetAppliedMigrationsAsync(Token);
-            Assert.Equal(3, migrations.Count());
+            Assert.Equal(4, migrations.Count());
             Assert.False(db.Database.HasPendingModelChanges());
             var persisted = await db.Shipments.SingleAsync(Token);
             Assert.Equal(shipment.Id, persisted.Id);
@@ -381,6 +381,32 @@ public sealed class InsightTests(PostgreSqlFixture postgres) : IClassFixture<Pos
             Assert.Empty(await db.AiAttempts.ToListAsync(Token));
             return 0;
         });
+    }
+    [Fact]
+    public async Task M7_upgrade_preserves_M6_usage_keys_logistics_and_the_existing_session()
+    {
+        var shipment = await Seed(ShipmentStatus.Planned);
+        await ReserveAndComplete(userId, 1);
+        await Db(async db =>
+        {
+            var before = JsonSerializer.Serialize(await db.AiAttempts.AsNoTracking().SingleAsync(Token));
+            var keys = await db.DataProtectionKeys.OrderBy(x => x.Id).Select(x => x.Xml).ToArrayAsync(Token);
+            var history = await db.ShipmentEvents.CountAsync(Token);
+            var migrator = db.GetService<IMigrator>();
+            await migrator.MigrateAsync("20261108214714_AddAiUsageLedger", Token);
+            Assert.Equal(3, (await db.Database.GetAppliedMigrationsAsync(Token)).Count());
+            Assert.Equal(before, JsonSerializer.Serialize(await db.AiAttempts.AsNoTracking().SingleAsync(Token)));
+            await migrator.MigrateAsync(cancellationToken: Token);
+            Assert.Equal(before, JsonSerializer.Serialize(await db.AiAttempts.AsNoTracking().SingleAsync(Token)));
+            Assert.Equal(keys, await db.DataProtectionKeys.OrderBy(x => x.Id).Select(x => x.Xml).ToArrayAsync(Token));
+            Assert.Equal(shipment.Id, (await db.Shipments.AsNoTracking().SingleAsync(Token)).Id);
+            Assert.Equal(history, await db.ShipmentEvents.CountAsync(Token));
+            Assert.False((await db.Users.AsNoTracking().SingleAsync(Token)).IsDemo);
+            Assert.Equal(0, await db.PortfolioSlots.CountAsync(Token));
+            return 0;
+        });
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/auth/me", Token)).StatusCode);
+        Assert.Equal(0, provider.Calls);
     }
     [Fact]
     public async Task Deactivated_allowlisted_users_cannot_start_inference()

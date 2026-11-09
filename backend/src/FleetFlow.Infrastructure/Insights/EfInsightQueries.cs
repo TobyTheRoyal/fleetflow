@@ -3,11 +3,12 @@ using FleetFlow.Application.Insights;
 using FleetFlow.Application.Queries;
 using FleetFlow.Domain.Vehicles;
 using FleetFlow.Infrastructure.Persistence;
+using FleetFlow.Infrastructure.Portfolio;
 using Microsoft.EntityFrameworkCore;
 
 namespace FleetFlow.Infrastructure.Insights;
 
-public sealed class EfInsightQueries(FleetFlowDbContext db, TimeProvider clock) : IInsightQueries
+public sealed class EfInsightQueries(FleetFlowDbContext db, TimeProvider clock, PortfolioScope? scope = null) : IInsightQueries
 {
     private sealed class FindingRow
     {
@@ -74,7 +75,7 @@ public sealed class EfInsightQueries(FleetFlowDbContext db, TimeProvider clock) 
         var summary = new InsightSummary(now, counts.Sum(x => x.Count), affected, Count(FindingType.Overdue) + Count(FindingType.InTransitOverdue),
             Count(FindingType.DueSoon), counts.Where(c => rules.Single(r => r.Type == c.Type).Severity == FindingSeverity.Critical).Sum(c => c.Count),
             counts.Where(c => rules.Single(r => r.Type == c.Type).Severity == FindingSeverity.High).Sum(c => c.Count),
-            byType, InsightJson.Fingerprint(findings, byType), findings.Length);
+            byType, InsightJson.Fingerprint(findings, byType, scope?.LeaseId?.ToString()), findings.Length);
         return new(summary, findings);
     }
 }

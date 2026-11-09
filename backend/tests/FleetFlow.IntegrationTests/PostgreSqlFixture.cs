@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Configurations;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -9,9 +10,12 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         .WithDatabase("fleetflow_tests")
         .WithUsername("fleetflow_tests")
         .WithPassword(Guid.NewGuid().ToString("N"))
+        .WithResourceMapping(File.ReadAllBytes(TestCertificate.CertificatePath), "/tmp/fleetflow.crt", 999, 999, UnixFileModes.UserRead | UnixFileModes.UserWrite)
+        .WithResourceMapping(File.ReadAllBytes(TestCertificate.PrivateKeyPath), "/tmp/fleetflow.key", 999, 999, UnixFileModes.UserRead | UnixFileModes.UserWrite)
+        .WithCommand("-c", "ssl=on", "-c", "ssl_cert_file=/tmp/fleetflow.crt", "-c", "ssl_key_file=/tmp/fleetflow.key")
         .Build();
 
-    public string ConnectionString => container.GetConnectionString();
+    public string ConnectionString => new NpgsqlConnectionStringBuilder(container.GetConnectionString()) { SslMode = SslMode.VerifyFull, RootCertificate = TestCertificate.CertificatePath, MaxPoolSize = 10 }.ConnectionString;
 
     public async ValueTask InitializeAsync()
     {

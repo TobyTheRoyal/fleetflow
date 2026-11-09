@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using FleetFlow.Api.Security;
 using FleetFlow.Application.Realtime;
+using FleetFlow.Infrastructure.Portfolio;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -19,14 +20,18 @@ public sealed class LogisticsHub(LiveConnections connections, IOptions<IdentityO
 {
     public override async Task OnConnectedAsync()
     {
-        var authentication = await Context.GetHttpContext()!.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        var http = Context.GetHttpContext()!;
+        var authentication = await http.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        // Hub activation has a different DI scope. Use the scope bound by cookie validation
+        // on the authenticated connection request, never a fresh unbound Hub service scope.
+        var scope = http.RequestServices.GetRequiredService<PortfolioScope>();
         var stamp = Context.User?.FindFirstValue(identity.Value.ClaimsIdentity.SecurityStampClaimType);
         if (!Guid.TryParse(Context.UserIdentifier, out var userId) || stamp is null || authentication.Properties?.ExpiresUtc is not { } expiry)
         {
             Context.Abort();
             return;
         }
-        connections.Add(Context.ConnectionId, new(userId, stamp, expiry, Context.Abort));
+        connections.Add(Context.ConnectionId, new(userId, stamp, expiry, Context.Abort, scope.Schema, scope.LeaseId));
         try
         {
             await connections.ValidConnectionsAsync(Context.ConnectionAborted);
@@ -55,9 +60,12 @@ public sealed class SignalRLogisticsNotifier(IHubContext<LogisticsHub, ILogistic
     {
         if (notifications.Count == 0) return;
         // Revalidate before sending, not merely when establishing the socket.
-        var recipients = await connections.ValidConnectionsAsync(cancellationToken);
-        if (recipients.Length == 0) return;
-        foreach (var notification in notifications)
-            await hub.Clients.Clients(recipients).LogisticsChanged(notification).WaitAsync(cancellationToken);
+        foreach (var group in notifications.GroupBy(n => n.Sandbox))
+        {
+            var recipients = await connections.RecipientsAsync(group.Key, cancellationToken);
+            if (recipients.Length == 0) continue;
+            foreach (var notification in group)
+                await hub.Clients.Clients(recipients).LogisticsChanged(notification).WaitAsync(cancellationToken);
+        }
     }
 }

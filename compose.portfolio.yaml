@@ -1,0 +1,67 @@
+# Standalone LOCAL production rehearsal. Never a cloud provisioning/deployment manifest.
+name: fleetflow-portfolio-local
+x-web: &web
+  image: fleetflow-portfolio:local
+  build:
+    context: .
+    dockerfile: Dockerfile.web
+  read_only: true
+  tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  volumes:
+    - ./.portfolio-local:/etc/secrets:ro
+  environment: &environment
+    ASPNETCORE_ENVIRONMENT: Production
+    SERVE_SPA: 'true'
+    AllowedHosts: localhost;127.0.0.1
+    Deployment__PublicOrigin: https://localhost:5443
+    Portfolio__Enabled: 'true'
+    Portfolio__ViewerSlots: '10'
+    Portfolio__DispatcherSlots: '3'
+    Portfolio__LeaseMinutes: '30'
+    ConnectionStrings__FleetFlow: Host=postgres;Database=portfolio;Username=fleetflow_web;Password=${RUNTIME_PASSWORD:?Run local preparation};SSL Mode=VerifyFull;Root Certificate=/etc/secrets/server.crt;Minimum Pool Size=0;Maximum Pool Size=10;Keepalive=0;GSS Encryption Mode=Disable
+    ConnectionStrings__PortfolioMaintenance: Host=postgres;Database=portfolio;Username=fleetflow_maintenance;Password=${MAINTENANCE_PASSWORD:?Run local preparation};SSL Mode=VerifyFull;Root Certificate=/etc/secrets/server.crt;Minimum Pool Size=0;Maximum Pool Size=2;Keepalive=0;GSS Encryption Mode=Disable
+    DataProtection__CertificatePath: /etc/secrets/protection.pfx
+    DataProtection__CertificatePassword: ${CERTIFICATE_PASSWORD:?Run local preparation}
+    AI_ENABLED: 'false'
+    CLOUDFLARE_API_TOKEN: ''
+services:
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: portfolio
+      POSTGRES_USER: portfolio_owner
+      POSTGRES_PASSWORD: ${OWNER_PASSWORD:?Run local preparation}
+    volumes:
+      - portfolio_data:/var/lib/postgresql
+      - ./.portfolio-local:/run/local-secrets:ro
+    # PostgreSQL checks ownership/mode of its TLS private key; copy into private tmpfs.
+    entrypoint: [sh, -c, 'cp /run/local-secrets/server.crt /run/local-secrets/server.key /tmp/ && chown postgres:postgres /tmp/server.key && chmod 600 /tmp/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key']
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U portfolio_owner -d portfolio']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  initialize:
+    <<: *web
+    profiles: [maintenance]
+    environment:
+      <<: *environment
+      ConnectionStrings__FleetFlow: Host=postgres;Database=portfolio;Username=portfolio_owner;Password=${OWNER_PASSWORD};SSL Mode=VerifyFull;Root Certificate=/etc/secrets/server.crt;Minimum Pool Size=0;Maximum Pool Size=2;Keepalive=0;GSS Encryption Mode=Disable
+      ConnectionStrings__PortfolioRuntime: Host=postgres;Database=portfolio;Username=fleetflow_web;Password=${RUNTIME_PASSWORD};SSL Mode=VerifyFull;Root Certificate=/etc/secrets/server.crt;Minimum Pool Size=0;Maximum Pool Size=10;Keepalive=0;GSS Encryption Mode=Disable
+    command: [--portfolio-init, '--Portfolio:ConfirmDatabase=portfolio', '--Portfolio:ProvisionLogins=true']
+    depends_on:
+      postgres: { condition: service_healthy }
+  web:
+    <<: *web
+    environment:
+      <<: *environment
+      ASPNETCORE_Kestrel__Endpoints__Https__Url: https://0.0.0.0:8443
+      ASPNETCORE_Kestrel__Endpoints__Https__Certificate__Path: /etc/secrets/protection.pfx
+      ASPNETCORE_Kestrel__Endpoints__Https__Certificate__Password: ${CERTIFICATE_PASSWORD}
+    ports: ['127.0.0.1:5443:8443']
+    depends_on:
+      postgres: { condition: service_healthy }
+volumes:
+  portfolio_data:

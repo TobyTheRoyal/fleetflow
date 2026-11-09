@@ -1,17 +1,21 @@
 using System.Text.Json.Serialization;
 using FleetFlow.Api.Errors;
 using FleetFlow.Api.OpenApi;
+using FleetFlow.Api.Portfolio;
 using FleetFlow.Api.Realtime;
 using FleetFlow.Api.Security;
 using FleetFlow.Application.Realtime;
 using FleetFlow.Infrastructure;
 using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
+using FleetFlow.Infrastructure.Portfolio;
 
 var migrate = args.Contains("--migrate");
 var seedUsers = args.Contains("--seed-users");
 var seed = args.Contains("--seed");
-var builder = WebApplication.CreateBuilder(args.Where(arg => arg is not ("--migrate" or "--seed" or "--seed-users")).ToArray());
+var initializePortfolio = args.Contains("--portfolio-init");
+var cliArgs = args.Where(arg => arg is not ("--migrate" or "--seed" or "--seed-users" or "--portfolio-init")).ToArray();
+var builder = WebApplication.CreateBuilder(cliArgs);
 
 // First-party OpenAPI reads HTTP JSON options independently of MVC's JSON options.
 // Keep enum and unknown-property schemas consistent with the controller contract.
@@ -54,6 +58,7 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddSessionSecurity(builder.Environment.IsDevelopment());
+DeploymentSecurity.Configure(builder);
 builder.Services.AddScoped<DevelopmentUsers>();
 builder.Services.AddSignalR(options =>
 {
@@ -68,6 +73,16 @@ if (serveSpa && int.TryParse(builder.Configuration["PORT"], out var port) && por
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 var app = builder.Build();
 
+if (initializePortfolio)
+{
+    if (app.Environment.IsProduction()) _ = app.Services.GetRequiredService<DeploymentSecrets>();
+    await using var scope = app.Services.CreateAsyncScope();
+    var initializer = scope.ServiceProvider.GetRequiredService<PortfolioInitializer>();
+    await initializer.InitializeAsync(builder.Configuration["Portfolio:ConfirmDatabase"] ?? "", default);
+    if (builder.Configuration.GetValue<bool>("Portfolio:ProvisionLogins")) await initializer.ProvisionLoginsAsync(default);
+    return;
+}
+
 if (migrate || seed || seedUsers)
 {
     await DevelopmentDatabase.InitializeAsync(app.Services, app.Environment.EnvironmentName, migrate, seed);
@@ -79,18 +94,22 @@ if (migrate || seed || seedUsers)
     return;
 }
 
-// Responses contain operational data, including on failure. Do not let clients cache it
-// or interpret a JSON response as executable content. OnStarting also covers handled errors.
-app.Use(async (context, next) =>
+if (app.Environment.IsProduction())
 {
-    context.Response.OnStarting(() =>
+    app.Use((context, next) =>
     {
-        context.Response.Headers.XContentTypeOptions = "nosniff";
-        context.Response.Headers.CacheControl = "no-store";
-        return Task.CompletedTask;
+        if (context.Connection.RemoteIpAddress is null)
+        {
+            context.Request.Headers.Remove("X-Forwarded-For");
+            context.Request.Headers.Remove("X-Forwarded-Proto");
+        }
+        return next(context);
     });
-    await next(context);
-});
+    app.UseForwardedHeaders();
+    app.UseHsts();
+    app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseHttpsRedirection());
+}
+app.Use(DeploymentSecurity.HeadersAsync);
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -105,6 +124,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.Use(HubSecurity.GuardAsync);
+app.Use(PortfolioFence.GuardAsync);
 
 if (app.Environment.IsDevelopment())
 {
@@ -116,7 +136,7 @@ app.MapHub<LogisticsHub>(HubSecurity.Path, options => options.CloseOnAuthenticat
 if (serveSpa)
 {
     // Known SPA routes only: unknown API/Hub URLs must never return index.html.
-    foreach (var route in new[] { "/login", "/insights", "/customers", "/drivers", "/vehicles", "/users", "/shipments/{*path:nonfile}" })
+    foreach (var route in new[] { "/demo", "/login", "/insights", "/customers", "/drivers", "/vehicles", "/users", "/shipments/{*path:nonfile}" })
         app.MapFallbackToFile(route, "index.html").AllowAnonymous();
 }
 app.Run();

@@ -38,12 +38,26 @@ jobs:
       - run: dotnet format backend/FleetFlow.slnx --verify-no-changes --no-restore
       # Integration fixtures own fresh PostgreSQL 18 containers/databases through
       # Testcontainers; no shared service database or test credentials are needed.
-      - run: dotnet ef migrations has-pending-model-changes --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api --configuration Release --no-build
+      - run: dotnet ef migrations has-pending-model-changes --context FleetFlowDbContext --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api --configuration Release --no-build
         env:
           ASPNETCORE_ENVIRONMENT: Development
           ConnectionStrings__FleetFlow: Host=127.0.0.1;Database=fleetflow_model_check
       - run: sh scripts/test-backend.sh
       - run: python3 scripts/audit-dotnet.py
+      - name: Build and rehearse the local Production Docker stack
+        run: |
+          python3 scripts/prepare-local-portfolio.py
+          docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml build web
+          docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml up -d --wait postgres
+          docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml run --rm initialize
+          docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml up -d web
+          python3 scripts/verify-local-portfolio.py --confirm-local-restart
+      - name: Remove only the disposable Production rehearsal
+        if: always()
+        run: |
+          if [ -f .portfolio-local/.env ]; then
+            docker compose --env-file .portfolio-local/.env -f compose.portfolio.yaml down --volumes
+          fi
       - if: always()
         uses: actions/upload-artifact@v7
         with:

@@ -1,3 +1,4 @@
+import { DemoPage } from '@/features/demo/DemoPage'
 import { ProtectedRoute } from '@/features/auth/session'
 import { LoginPage } from '@/features/auth/LoginForm'
 import { UsersPage } from '@/features/auth/UsersPage'
@@ -54,6 +55,7 @@ const VehiclesPage = lazy(() =>
 export function App() {
   return (
     <Routes>
+      <Route path="demo" element={<DemoPage />} />
       <Route path="login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

@@ -54,3 +54,9 @@ The five existing jobs automatically include real PostgreSQL/SignalR integration
 ## M6 provider-free verification
 
 The same five jobs include M6 unit/integration/component tests and all browser projects. Browser setup now builds the dedicated Development test host through `compose.e2e.yaml`; it uses the real API/Identity/PostgreSQL and only a fake inference provider. Normal application images exclude that host. No Cloudflare credential or external inference service is needed or permitted. Generated insight contracts participate in the existing API drift check. Local results are recorded in [M6 verification](m6-verification.md); prior green hosted jobs do not certify this new revision.
+
+## M7 manual schema workflow
+
+`portfolio-initialize.yml` is workflow_dispatch-only and main-branch-only. It requires a full reviewed SHA with a successful quality workflow, exact database confirmation and a protected `portfolio-maintenance` environment. It builds before reading secrets and runs one local Docker initialization process with owner credentials; it creates no provider resources and performs no deployment. Secrets and certificates are not artifacts. Configure reviewers and environment-scoped secrets manually only after separate approval. Neither this workflow nor the new M7 source has been executed on GitHub by this local task.
+
+The existing backend quality job also builds `Dockerfile.web` and runs the standalone local Production HTTPS/restart smoke with generated test-only external certificates and no AI credentials. Its cleanup names only that disposable CI project/volume. The quality workflow still has five jobs and performs no cloud provisioning or deployment.

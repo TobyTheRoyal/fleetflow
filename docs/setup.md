@@ -60,7 +60,7 @@ dotnet watch --project backend/src/FleetFlow.Api
 The launch profile selects Development and localhost:5080. ASP.NET Core does not automatically read Compose's `.env`. Host tools connect to port 5433; API containers connect to `postgres:5432`. EF commands use the same connection configuration:
 
 ```sh
-dotnet ef database update --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api
+dotnet ef database update --context FleetFlowDbContext --project backend/src/FleetFlow.Infrastructure --startup-project backend/src/FleetFlow.Api
 dotnet run --project backend/src/FleetFlow.Api -- --seed
 ```
 

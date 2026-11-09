@@ -4,6 +4,7 @@ namespace FleetFlow.Infrastructure.Identity;
 
 public sealed class ApplicationUser : IdentityUser<Guid>
 {
+    public bool IsDemo { get; set; }
     public string DisplayName { get; set; } = "";
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAtUtc { get; set; }

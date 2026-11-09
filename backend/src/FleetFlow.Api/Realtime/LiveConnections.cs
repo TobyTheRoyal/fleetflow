@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
+using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace FleetFlow.Api.Realtime;
 
-public sealed record LiveSession(Guid UserId, string Stamp, DateTimeOffset ExpiresAtUtc, Action Abort);
+public sealed record LiveSession(Guid UserId, string Stamp, DateTimeOffset ExpiresAtUtc, Action Abort, string? Sandbox = null, Guid? LeaseId = null);
 
 // Instance-local connection metadata, never tokens or customer data. Hub instances themselves are transient.
 public sealed class LiveConnections(IServiceScopeFactory scopes, TimeProvider clock)
@@ -15,6 +16,11 @@ public sealed class LiveConnections(IServiceScopeFactory scopes, TimeProvider cl
     public void Remove(string connectionId) => connections.TryRemove(connectionId, out _);
     public int Count => connections.Count;
 
+    public async Task<string[]> RecipientsAsync(string? sandbox, CancellationToken token)
+    {
+        var valid = await ValidConnectionsAsync(token);
+        return valid.Where(id => connections.TryGetValue(id, out var session) && session.Sandbox == sandbox).ToArray();
+    }
     public async Task<string[]> ValidConnectionsAsync(CancellationToken token)
     {
         await validation.WaitAsync(token);
@@ -23,7 +29,7 @@ public sealed class LiveConnections(IServiceScopeFactory scopes, TimeProvider cl
             var snapshot = connections.ToArray();
             if (snapshot.Length == 0) return [];
             await using var scope = scopes.CreateAsyncScope();
-            var db = scope.ServiceProvider.GetRequiredService<FleetFlowDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<IdentityPersistence>();
             var valid = new List<string>();
             foreach (var batch in snapshot.Chunk(100))
             {
@@ -31,11 +37,14 @@ public sealed class LiveConnections(IServiceScopeFactory scopes, TimeProvider cl
                 var users = await db.Users.AsNoTracking().Where(x => ids.Contains(x.Id) && x.IsActive
                     && db.UserRoles.Any(ur => ur.UserId == x.Id && db.Roles.Any(r => r.Id == ur.RoleId
                         && (r.Name == "Admin" || r.Name == "Dispatcher" || r.Name == "Viewer"))))
-                    .Select(x => new { x.Id, x.SecurityStamp }).ToDictionaryAsync(x => x.Id, token);
+                    .Select(x => new { x.Id, x.SecurityStamp, x.IsDemo }).ToDictionaryAsync(x => x.Id, token);
+                var leases = await db.PortfolioSlots.AsNoTracking().Where(x => ids.Contains(x.UserId) && x.Ready && x.ExpiresAtUtc > clock.GetUtcNow())
+                    .ToDictionaryAsync(x => x.UserId, token);
                 foreach (var (id, session) in batch)
                 {
                     if (session.ExpiresAtUtc > clock.GetUtcNow() && users.TryGetValue(session.UserId, out var user)
-                        && string.Equals(user.SecurityStamp, session.Stamp, StringComparison.Ordinal)) valid.Add(id);
+                        && string.Equals(user.SecurityStamp, session.Stamp, StringComparison.Ordinal)
+                        && (!user.IsDemo || (leases.TryGetValue(user.Id, out var lease) && lease.LeaseId == session.LeaseId && lease.SchemaName == session.Sandbox))) valid.Add(id);
                     else if (connections.TryRemove(id, out var removed)) removed.Abort();
                 }
             }

@@ -90,7 +90,8 @@ export function LoginForm({
   )
 }
 export function LoginPage() {
-  const { user, ready } = useSession()
+  const { user, ready, portfolioMode } = useSession()
+  if (portfolioMode) return <Navigate to="/demo" replace />
   if (ready && user) return <Navigate to="/" replace />
   return (
     <main className="login-page">

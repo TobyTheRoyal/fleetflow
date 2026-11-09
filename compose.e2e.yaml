@@ -7,3 +7,24 @@ services:
       FLEETFLOW_E2E_HOST: '1'
       AI_ENABLED: 'false'
       CLOUDFLARE_API_TOKEN: ''
+  demo:
+    build:
+      context: .
+      dockerfile: backend/tests/FleetFlow.BrowserHost/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      FLEETFLOW_E2E_HOST: '1'
+      FLEETFLOW_E2E_DEMO: '1'
+      AI_ENABLED: 'false'
+      CLOUDFLARE_API_TOKEN: ''
+      ConnectionStrings__FleetFlow: "Host=postgres;Database=fleetflow_e2e;Username=fleetflow;Password=${POSTGRES_PASSWORD:?Isolated test password required};Timeout=5;Command Timeout=30"
+    ports:
+      - '127.0.0.1:5181:8080'
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres:
+        condition: service_healthy

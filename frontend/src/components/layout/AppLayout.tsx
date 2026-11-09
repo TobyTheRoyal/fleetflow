@@ -1,3 +1,4 @@
+import { DemoBanner } from '@/features/demo/DemoBanner'
 import { RealtimeStatus } from '@/features/realtime/RealtimeStatus'
 import { PasswordDialog } from '@/features/auth/PasswordDialog'
 import { useSession } from '@/features/auth/context'
@@ -123,19 +124,23 @@ export function AppLayout() {
                 </span>
                 <div>
                   <strong>Dispatch workspace</strong>
-                  <span>Local development</span>
+                  <span>
+                    {user?.demo ? 'Portfolio demo' : 'Local development'}
+                  </span>
                 </div>
               </div>
-              <a
-                className="docs-link"
-                href={`${apiBase}/openapi/v1.json`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                API documentation
-                <ArrowUpRight size={14} />
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
+              {!user?.demo && (
+                <a
+                  className="docs-link"
+                  href={`${apiBase}/openapi/v1.json`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  API documentation
+                  <ArrowUpRight size={14} />
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              )}
             </>
           )}
           <button
@@ -220,14 +225,16 @@ export function AppLayout() {
             >
               <LogOut size={18} />
             </Button>
-            <button
-              className="icon-button"
-              aria-label="Change password"
-              title="Change password"
-              onClick={() => setPasswordOpen(true)}
-            >
-              <KeyRound size={18} />
-            </button>
+            {!user?.demo && (
+              <button
+                className="icon-button"
+                aria-label="Change password"
+                title="Change password"
+                onClick={() => setPasswordOpen(true)}
+              >
+                <KeyRound size={18} />
+              </button>
+            )}
             <div className="demo-user">
               <span className="user-avatar">
                 <UserRound size={17} />
@@ -240,11 +247,14 @@ export function AppLayout() {
           </div>
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
+          <DemoBanner />
           <PageBoundary />
         </main>
         <footer className="workspace-footer">
           <span>FleetFlow · Independent portfolio project</span>
-          <span>All times in Europe/Vienna · Local workspace</span>
+          <span>
+            All times in Europe/Vienna · Fictional logistics workspace
+          </span>
         </footer>
       </div>
       {passwordOpen && <PasswordDialog close={() => setPasswordOpen(false)} />}

@@ -1,0 +1,64 @@
+name: Manually initialize reviewed portfolio schema
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: 'Full 40-character reviewed commit SHA (quality workflow must be green)'
+        required: true
+        type: string
+      confirm_database:
+        description: 'Exact existing database name; this does not create cloud resources'
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: portfolio-schema-maintenance
+  cancel-in-progress: false
+jobs:
+  initialize:
+    if: github.ref == 'refs/heads/main'
+    environment: portfolio-maintenance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Validate immutable source selection
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+        run: '[[ "$REVIEWED_COMMIT" =~ ^[a-f0-9]{40}$ ]]'
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.reviewed_commit }}
+          persist-credentials: false
+      - name: Require successful hosted quality checks for this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+        run: |
+          result=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$REVIEWED_COMMIT&status=completed&per_page=10" --jq '.workflow_runs | sort_by(.created_at) | last | .conclusion')
+          test "$result" = success
+      - name: Guard public source files
+        run: python3 scripts/check-public-files.py
+      - name: Build the reviewed image locally on the runner
+        run: docker build -f Dockerfile.web -t fleetflow-reviewed:initialization .
+      - name: Initialize existing database with separately approved credentials
+        env:
+          INITIALIZATION_ENV: ${{ secrets.INITIALIZATION_ENV }}
+          CERTIFICATE_BASE64: ${{ secrets.DATA_PROTECTION_PFX_BASE64 }}
+          CONFIRM_DATABASE: ${{ inputs.confirm_database }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          secret_dir=$(mktemp -d)
+          trap 'rm -rf "$secret_dir"' EXIT
+          printf '%s' "$INITIALIZATION_ENV" > "$secret_dir/initialization.env"
+          printf '%s' "$CERTIFICATE_BASE64" > "$secret_dir/fleetflow-protection.pfx.b64"
+          chmod 0711 "$secret_dir"
+          # The image runs as UID 1654; certificate contents are never printed or uploaded.
+          sudo chown 1654:1654 "$secret_dir/fleetflow-protection.pfx.b64"
+          export FLEETFLOW_RELEASE_IMAGE=fleetflow-reviewed:initialization
+          export FLEETFLOW_INITIALIZATION_ENV="$secret_dir/initialization.env"
+          export FLEETFLOW_CERTIFICATE_DIRECTORY="$secret_dir"
+          sh scripts/initialize-portfolio.sh --confirm-database "$CONFIRM_DATABASE"

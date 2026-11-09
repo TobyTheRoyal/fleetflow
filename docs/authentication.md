@@ -87,3 +87,9 @@ Authentication does not constitute deployment approval. TLS/proxy policies, prot
 ## M5b established connections
 
 [The real-time layer](realtime.md) reuses these cookies, roles and CSRF tokens. SignalR caches a connection principal; per-HTTP stamp validation alone cannot revoke an idle WebSocket. The server therefore validates registered sessions before delivery and on a five-second sweep, and enables transport closure at ticket expiry. Account deactivation, logout and password stamp rotation revoke existing sockets as well as subsequent REST requests. An already-in-flight minimal hint can race with revocation; REST always reauthenticates. Client disconnect/401 handling reuses the existing unsaved-form-preserving session modal.
+
+## M7 portfolio mode
+
+Normal password login is preserved when portfolio mode is disabled. Explicit public-demo mode replaces public password login with CSRF-protected one-click Viewer/Dispatcher entry into bounded exclusive Identity leases. No Admin account or self-registration is exposed. Cookies expire at the lease boundary, never slide; server validation checks active account, stamp, role and lease on each request. Logout/reuse revokes prior sessions. Cache keys and form roots include the lease UUID. See [public demo security](portfolio-demo.md) for capacity, reset, SignalR isolation and quota behavior.
+
+Production now requires an external private-key certificate and encrypts newly stored Data Protection keys in PostgreSQL. Public-demo startup rejects plaintext legacy key rows. Development key rings must not be copied into the public database. Follow [backup and rotation](deployment.md), including retention of previous private keys. Actual host proxy, TLS and secret configuration still require a separately approved deployment verification.

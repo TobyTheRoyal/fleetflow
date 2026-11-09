@@ -8,7 +8,7 @@ namespace FleetFlow.Infrastructure.Identity;
 
 public sealed record UserAccount(Guid Id, string Email, string DisplayName, string Role, bool Active);
 public sealed record NewUser(string Email, string DisplayName, string Role, string Password);
-public sealed class UserAdministration(FleetFlowDbContext db, UserManager<ApplicationUser> users, TimeProvider clock)
+public sealed class UserAdministration(IdentityPersistence db, UserManager<ApplicationUser> users, TimeProvider clock)
 {
     public async Task<PageResult<UserAccount>> ListAsync(PageRequest page, CancellationToken token)
     {

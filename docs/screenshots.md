@@ -17,3 +17,9 @@ Desktop captures use 1440×1040, en-GB, Europe/Vienna and reduced motion. The de
 `npm run screenshots -- --preview` optionally keeps that disposable preview open until Enter. Use the normal development stack for persistent work. If interrupted forcefully, follow the disposable cleanup instructions in the testing guide. Review every screenshot for fictional data, legibility, clipping and unexpected debug/error states before committing it.
 
 These images do not claim real mobile-device testing, a deployed demo or performance benchmarks. Regenerate deliberately when appearance or seed data changes; do not silently replace them with generated artwork.
+
+## M7 public entry
+
+`portfolio-entry.png` was captured from the actual locally built Production SPA at `https://localhost:5443/demo`, using the separate fictional portfolio stack and no inference credentials. It contains real available-slot counts at capture time. The local self-signed certificate is a rehearsal detail; no public site is deployed.
+
+To recapture only the public entry after starting the local portfolio stack: from `frontend`, run `node scripts/portfolio-production-smoke.mjs --accept-local-test-certificate --screenshot`. It uses the built SPA, verifies real role sessions in all three browsers and never generates AI.

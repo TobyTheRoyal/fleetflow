@@ -4,6 +4,410 @@
  */
 
 export interface paths {
+    "/api/v1/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "id": "44444444-4444-4444-8444-444444444444",
+                         *       "shipmentNumber": "FF-2026-000001",
+                         *       "customerId": "11111111-1111-4111-8111-111111111111",
+                         *       "origin": {
+                         *         "street": "Demo Depotstrasse 1",
+                         *         "city": "Graz",
+                         *         "postcode": "8010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "destination": {
+                         *         "street": "Demo Lagerweg 2",
+                         *         "city": "Vienna",
+                         *         "postcode": "1010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "pickupWindowStartUtc": "2026-11-06T13:00:00+00:00",
+                         *       "deliveryDeadlineUtc": "2026-11-06T17:00:00+00:00",
+                         *       "weightKg": 1200.5,
+                         *       "palletCount": 3,
+                         *       "cargoDescription": "Fictional demo pallets",
+                         *       "status": "Draft",
+                         *       "assignedDriverId": null,
+                         *       "assignedVehicleId": null,
+                         *       "actualPickupAtUtc": null,
+                         *       "actualDeliveredAtUtc": null,
+                         *       "createdAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "updatedAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "version": 1,
+                         *       "customerName": "Alpenstern Demo GmbH",
+                         *       "assignedDriverName": null,
+                         *       "assignedVehiclePlateNumber": null
+                         *     }
+                         */
+                        "text/plain": components["schemas"]["DemoAvailability"];
+                        /**
+                         * @example {
+                         *       "id": "44444444-4444-4444-8444-444444444444",
+                         *       "shipmentNumber": "FF-2026-000001",
+                         *       "customerId": "11111111-1111-4111-8111-111111111111",
+                         *       "origin": {
+                         *         "street": "Demo Depotstrasse 1",
+                         *         "city": "Graz",
+                         *         "postcode": "8010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "destination": {
+                         *         "street": "Demo Lagerweg 2",
+                         *         "city": "Vienna",
+                         *         "postcode": "1010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "pickupWindowStartUtc": "2026-11-06T13:00:00+00:00",
+                         *       "deliveryDeadlineUtc": "2026-11-06T17:00:00+00:00",
+                         *       "weightKg": 1200.5,
+                         *       "palletCount": 3,
+                         *       "cargoDescription": "Fictional demo pallets",
+                         *       "status": "Draft",
+                         *       "assignedDriverId": null,
+                         *       "assignedVehicleId": null,
+                         *       "actualPickupAtUtc": null,
+                         *       "actualDeliveredAtUtc": null,
+                         *       "createdAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "updatedAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "version": 1,
+                         *       "customerName": "Alpenstern Demo GmbH",
+                         *       "assignedDriverName": null,
+                         *       "assignedVehiclePlateNumber": null
+                         *     }
+                         */
+                        "application/json": components["schemas"]["DemoAvailability"];
+                        /**
+                         * @example {
+                         *       "id": "44444444-4444-4444-8444-444444444444",
+                         *       "shipmentNumber": "FF-2026-000001",
+                         *       "customerId": "11111111-1111-4111-8111-111111111111",
+                         *       "origin": {
+                         *         "street": "Demo Depotstrasse 1",
+                         *         "city": "Graz",
+                         *         "postcode": "8010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "destination": {
+                         *         "street": "Demo Lagerweg 2",
+                         *         "city": "Vienna",
+                         *         "postcode": "1010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "pickupWindowStartUtc": "2026-11-06T13:00:00+00:00",
+                         *       "deliveryDeadlineUtc": "2026-11-06T17:00:00+00:00",
+                         *       "weightKg": 1200.5,
+                         *       "palletCount": 3,
+                         *       "cargoDescription": "Fictional demo pallets",
+                         *       "status": "Draft",
+                         *       "assignedDriverId": null,
+                         *       "assignedVehicleId": null,
+                         *       "actualPickupAtUtc": null,
+                         *       "actualDeliveredAtUtc": null,
+                         *       "createdAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "updatedAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "version": 1,
+                         *       "customerName": "Alpenstern Demo GmbH",
+                         *       "assignedDriverName": null,
+                         *       "assignedVehiclePlateNumber": null
+                         *     }
+                         */
+                        "text/json": components["schemas"]["DemoAvailability"];
+                    };
+                };
+                /** @description Resource not found; code not_found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "type": "about:blank",
+                         *       "title": "The operation could not be completed.",
+                         *       "status": 404,
+                         *       "detail": "A safe explanation of the rejected operation.",
+                         *       "code": "not_found",
+                         *       "traceId": "example-request-trace"
+                         *     }
+                         */
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demo/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Request token from GET /api/v1/auth/csrf, paired with its HttpOnly antiforgery cookie. Refresh after login/logout; never retry a write automatically. */
+                    "X-CSRF-TOKEN": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DemoStartRequest"];
+                    "text/json": components["schemas"]["DemoStartRequest"];
+                    "application/*+json": components["schemas"]["DemoStartRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "id": "44444444-4444-4444-8444-444444444444",
+                         *       "shipmentNumber": "FF-2026-000001",
+                         *       "customerId": "11111111-1111-4111-8111-111111111111",
+                         *       "origin": {
+                         *         "street": "Demo Depotstrasse 1",
+                         *         "city": "Graz",
+                         *         "postcode": "8010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "destination": {
+                         *         "street": "Demo Lagerweg 2",
+                         *         "city": "Vienna",
+                         *         "postcode": "1010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "pickupWindowStartUtc": "2026-11-06T13:00:00+00:00",
+                         *       "deliveryDeadlineUtc": "2026-11-06T17:00:00+00:00",
+                         *       "weightKg": 1200.5,
+                         *       "palletCount": 3,
+                         *       "cargoDescription": "Fictional demo pallets",
+                         *       "status": "Draft",
+                         *       "assignedDriverId": null,
+                         *       "assignedVehicleId": null,
+                         *       "actualPickupAtUtc": null,
+                         *       "actualDeliveredAtUtc": null,
+                         *       "createdAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "updatedAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "version": 1,
+                         *       "customerName": "Alpenstern Demo GmbH",
+                         *       "assignedDriverName": null,
+                         *       "assignedVehiclePlateNumber": null
+                         *     }
+                         */
+                        "text/plain": components["schemas"]["SessionUser"];
+                        /**
+                         * @example {
+                         *       "id": "44444444-4444-4444-8444-444444444444",
+                         *       "shipmentNumber": "FF-2026-000001",
+                         *       "customerId": "11111111-1111-4111-8111-111111111111",
+                         *       "origin": {
+                         *         "street": "Demo Depotstrasse 1",
+                         *         "city": "Graz",
+                         *         "postcode": "8010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "destination": {
+                         *         "street": "Demo Lagerweg 2",
+                         *         "city": "Vienna",
+                         *         "postcode": "1010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "pickupWindowStartUtc": "2026-11-06T13:00:00+00:00",
+                         *       "deliveryDeadlineUtc": "2026-11-06T17:00:00+00:00",
+                         *       "weightKg": 1200.5,
+                         *       "palletCount": 3,
+                         *       "cargoDescription": "Fictional demo pallets",
+                         *       "status": "Draft",
+                         *       "assignedDriverId": null,
+                         *       "assignedVehicleId": null,
+                         *       "actualPickupAtUtc": null,
+                         *       "actualDeliveredAtUtc": null,
+                         *       "createdAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "updatedAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "version": 1,
+                         *       "customerName": "Alpenstern Demo GmbH",
+                         *       "assignedDriverName": null,
+                         *       "assignedVehiclePlateNumber": null
+                         *     }
+                         */
+                        "application/json": components["schemas"]["SessionUser"];
+                        /**
+                         * @example {
+                         *       "id": "44444444-4444-4444-8444-444444444444",
+                         *       "shipmentNumber": "FF-2026-000001",
+                         *       "customerId": "11111111-1111-4111-8111-111111111111",
+                         *       "origin": {
+                         *         "street": "Demo Depotstrasse 1",
+                         *         "city": "Graz",
+                         *         "postcode": "8010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "destination": {
+                         *         "street": "Demo Lagerweg 2",
+                         *         "city": "Vienna",
+                         *         "postcode": "1010",
+                         *         "countryCode": "AT"
+                         *       },
+                         *       "pickupWindowStartUtc": "2026-11-06T13:00:00+00:00",
+                         *       "deliveryDeadlineUtc": "2026-11-06T17:00:00+00:00",
+                         *       "weightKg": 1200.5,
+                         *       "palletCount": 3,
+                         *       "cargoDescription": "Fictional demo pallets",
+                         *       "status": "Draft",
+                         *       "assignedDriverId": null,
+                         *       "assignedVehicleId": null,
+                         *       "actualPickupAtUtc": null,
+                         *       "actualDeliveredAtUtc": null,
+                         *       "createdAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "updatedAtUtc": "2026-11-06T12:00:00+00:00",
+                         *       "version": 1,
+                         *       "customerName": "Alpenstern Demo GmbH",
+                         *       "assignedDriverName": null,
+                         *       "assignedVehiclePlateNumber": null
+                         *     }
+                         */
+                        "text/json": components["schemas"]["SessionUser"];
+                    };
+                };
+                /** @description Malformed input; code invalid_request and field errors. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "type": "about:blank",
+                         *       "title": "The operation could not be completed.",
+                         *       "status": 400,
+                         *       "detail": "A safe explanation of the rejected operation.",
+                         *       "code": "invalid_request",
+                         *       "traceId": "example-request-trace",
+                         *       "errors": {
+                         *         "version": [
+                         *           "A required value is missing, invalid, or outside its allowed range."
+                         *         ]
+                         *       }
+                         *     }
+                         */
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Resource not found; code not_found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "type": "about:blank",
+                         *       "title": "The operation could not be completed.",
+                         *       "status": 404,
+                         *       "detail": "A safe explanation of the rejected operation.",
+                         *       "code": "not_found",
+                         *       "traceId": "example-request-trace"
+                         *     }
+                         */
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Status, assignment, stale_version, resource_in_use or duplicate_value conflict; reload when stale. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "type": "about:blank",
+                         *       "title": "The operation could not be completed.",
+                         *       "status": 409,
+                         *       "detail": "A safe explanation of the rejected operation.",
+                         *       "code": "stale_version",
+                         *       "traceId": "example-request-trace"
+                         *     }
+                         */
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Business validation failure, e.g. invalid_weight, invalid_country or vehicle_overloaded. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example {
+                         *       "type": "about:blank",
+                         *       "title": "The operation could not be completed.",
+                         *       "status": 422,
+                         *       "detail": "A safe explanation of the rejected operation.",
+                         *       "code": "vehicle_overloaded",
+                         *       "traceId": "example-request-trace"
+                         *     }
+                         */
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -5437,6 +5841,25 @@ export interface components {
         };
         /** @enum {unknown} */
         DeadlineFilter: "Overdue" | "DueSoon" | null;
+        DemoAvailability: {
+            enabled: boolean;
+            /** Format: int32 */
+            viewerAvailable: number;
+            /** Format: int32 */
+            dispatcherAvailable: number;
+            /** Format: int32 */
+            leaseMinutes: number;
+        };
+        DemoSession: {
+            /** Format: uuid */
+            leaseId: string;
+            mode: string;
+            /** Format: date-time */
+            expiresAtUtc: string;
+        };
+        DemoStartRequest: {
+            mode: string;
+        };
         DriverRequest: {
             employeeNumber: string;
             firstName: string;
@@ -5609,6 +6032,7 @@ export interface components {
             displayName: string;
             role: string;
             active: boolean;
+            demo?: null | components["schemas"]["DemoSession"];
         };
         ShipmentEventResponse: {
             /** Format: uuid */
