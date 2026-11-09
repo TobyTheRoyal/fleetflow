@@ -40,6 +40,27 @@ public static class DeploymentSecurity
         builder.Services.AddHsts(options => { options.MaxAge = TimeSpan.FromDays(30); options.IncludeSubDomains = false; options.ExcludedHosts.Clear(); });
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
     }
+    internal static Task RenderFreeEdgeAsync(HttpContext context, RequestDelegate next, string hostname)
+    {
+        var request = context.Request;
+        if (!string.Equals(request.Host.Value, hostname, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.Host.Value, hostname + ":443", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return Task.CompletedTask;
+        }
+
+        request.Headers.Remove("Forwarded");
+        request.Headers.Remove("X-Forwarded-For");
+        request.Headers.Remove("X-Forwarded-Host");
+        request.Headers.Remove("X-Forwarded-Proto");
+        request.Headers.Remove("X-Forwarded-Prefix");
+        // Render Free exposes only the managed public edge. It redirects public HTTP
+        // before forwarding HTTPS traffic internally over HTTP. Keep the transport peer for rate limits.
+        request.Scheme = Uri.UriSchemeHttps;
+        return next(context);
+    }
+
     public static async Task HeadersAsync(HttpContext context, RequestDelegate next)
     {
         var production = context.RequestServices.GetRequiredService<IHostEnvironment>().IsProduction();
@@ -67,6 +88,7 @@ public sealed class DeploymentSecrets : IDisposable
 {
     public X509Certificate2 Certificate { get; }
     public X509Certificate2[] Certificates { get; }
+    internal string? RenderFreeHostname { get; }
 
     public static void ValidateInitializationTarget(IConfiguration config)
     {
@@ -91,6 +113,19 @@ public sealed class DeploymentSecrets : IDisposable
         var hosts = (config["AllowedHosts"] ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
         if (hosts.Length == 0 || hosts.Any(h => h.Contains('*')) || !hosts.Contains(origin.Host, StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException("Production requires explicit AllowedHosts matching the public origin.");
+        if (config.GetValue<bool>("Deployment:RenderFreeEdgeHttps"))
+        {
+            var renderHost = config["RENDER_EXTERNAL_HOSTNAME"] ?? "";
+            if (!config.GetValue<bool>("RENDER") || config["RENDER_SERVICE_TYPE"] != "web" || !IsRenderHostname(renderHost))
+                throw new InvalidOperationException("Render Free HTTPS mode requires valid Render web service metadata.");
+            var renderOrigin = $"https://{renderHost.ToLowerInvariant()}";
+            if (!MatchesOrigin(config["RENDER_EXTERNAL_URL"], renderOrigin) || !MatchesOrigin(config["Deployment:PublicOrigin"], renderOrigin) ||
+                hosts.Length != 1 || !string.Equals(hosts[0], renderHost, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Render Free HTTPS mode requires the exact Render public URL and only its assigned hostname in AllowedHosts.");
+            if (config.GetSection("Deployment:TrustedProxies").Exists() || config.GetSection("Deployment:TrustedNetworks").Exists())
+                throw new InvalidOperationException("Render Free HTTPS mode cannot be combined with trusted proxy or network settings.");
+            RenderFreeHostname = renderHost;
+        }
         var connection = new NpgsqlConnectionStringBuilder(config.GetConnectionString("FleetFlow"));
         if (connection.SslMode != SslMode.VerifyFull || connection.MaxPoolSize > 10 || connection.MinPoolSize != 0 || connection.KeepAlive != 0 || string.IsNullOrWhiteSpace(connection.Host) || connection.Host.Contains(',') || connection.Host.Contains("-pooler", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Production requires direct PostgreSQL VerifyFull TLS, minimum pool 0, maximum pool <=10, and no keepalive queries.");
@@ -114,6 +149,20 @@ public sealed class DeploymentSecrets : IDisposable
         Certificates = previous.Select(Load).Prepend(Certificate).ToArray();
         if (Certificates.Any(certificate => !certificate.HasPrivateKey)) throw new InvalidOperationException("Every retained Data Protection certificate requires its private key.");
     }
+
+    private static bool IsRenderHostname(string hostname)
+    {
+        const string suffix = ".onrender.com";
+        if (!hostname.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) return false;
+        var label = hostname[..^suffix.Length];
+        return label.Length is > 0 and <= 63 && char.IsAsciiLetterOrDigit(label[0]) &&
+            char.IsAsciiLetterOrDigit(label[^1]) && label.All(c => char.IsAsciiLetterOrDigit(c) || c == '-');
+    }
+
+    private static bool MatchesOrigin(string? configured, string expected) =>
+        string.Equals(configured, expected, StringComparison.Ordinal) ||
+        string.Equals(configured, expected + "/", StringComparison.Ordinal);
+
     public void Dispose() { foreach (var certificate in Certificates) certificate.Dispose(); }
 }
 public sealed class ProductionValidation(DeploymentSecrets secrets, IConfiguration configuration, FleetFlow.Infrastructure.Portfolio.PortfolioSettings portfolio) : IHostedService

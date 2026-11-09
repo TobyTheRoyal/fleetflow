@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.WebSockets;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using FleetFlow.Api.Contracts;
@@ -10,6 +12,8 @@ using FleetFlow.Application.Realtime;
 using FleetFlow.Infrastructure.Identity;
 using FleetFlow.Infrastructure.Persistence;
 using FleetFlow.Infrastructure.Portfolio;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -164,6 +168,124 @@ public sealed class PortfolioTests(PostgreSqlFixture postgres) : IClassFixture<P
         Assert.Equal(HttpStatusCode.TemporaryRedirect, refused.StatusCode);
         Assert.Equal("https", refused.Headers.Location!.Scheme);
     }
+    [Fact]
+    public async Task Render_edge_preserves_demo_sessions_sandbox_isolation_rate_limits_and_websocket_security()
+    {
+        const string origin = DeploymentSecurityTests.RenderOrigin;
+        var configuration = DeploymentSecurityTests.RenderSettings();
+        configuration["Portfolio:Enabled"] = "true";
+        configuration["ConnectionStrings:PortfolioMaintenance"] = maintenanceConnection;
+        await using var render = new FleetFlowApiFactory(runtimeConnection, "Production", clock, services =>
+        {
+            services.AddSingleton(settings);
+            services.AddSingleton<IStartupFilter, RenderTransportPeer>();
+        }, configuration);
+
+        HttpClient Browser(Cookies? cookies = null)
+        {
+            var client = render.CreateDefaultClient(cookies ?? new Cookies(origin));
+            client.BaseAddress = new(origin);
+            return client;
+        }
+
+        static void AssertSecureCookie(HttpResponseMessage response, string name)
+        {
+            var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"), x => x.StartsWith(name + "=", StringComparison.Ordinal));
+            Assert.Contains("; secure", cookie, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("; httponly", cookie, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("; samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        }
+
+        async Task Enter(HttpClient client, string mode)
+        {
+            await TestAuthentication.RefreshCsrfAsync(client);
+            using var reply = await client.PostAsJsonAsync("/api/v1/demo/sessions", new { mode }, Token);
+            Assert.Equal(HttpStatusCode.OK, reply.StatusCode);
+            AssertSecureCookie(reply, "FleetFlow.Session");
+            await TestAuthentication.RefreshCsrfAsync(client);
+        }
+
+        using var viewer = Browser();
+        using var noCsrf = await viewer.PostAsJsonAsync("/api/v1/demo/sessions", new { mode = "Viewer" }, Token);
+        Assert.Equal(HttpStatusCode.BadRequest, noCsrf.StatusCode);
+        Assert.Contains("csrf_invalid", await noCsrf.Content.ReadAsStringAsync(Token));
+        using var csrfCookie = await viewer.GetAsync("/api/v1/auth/csrf", Token);
+        AssertSecureCookie(csrfCookie, "FleetFlow.Antiforgery");
+        await Enter(viewer, "Viewer");
+        using var forbidden = await viewer.PostAsJsonAsync("/api/v1/customers", new { name = "Viewer write" }, Token);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var dispatcherCookies = new Cookies(origin);
+        using var dispatcher = Browser(dispatcherCookies);
+        using var other = Browser();
+        await Enter(dispatcher, "Dispatcher");
+        await Enter(other, "Dispatcher");
+        var fictionalCustomer = new { name = "Render sandbox marker", contactName = "Demo", email = "edge@example.test" };
+        using var created = await dispatcher.PostAsJsonAsync("/api/v1/customers", fictionalCustomer, Token);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Contains(fictionalCustomer.name, await dispatcher.GetStringAsync("/api/v1/customers?search=Render", Token));
+        Assert.DoesNotContain(fictionalCustomer.name, await other.GetStringAsync("/api/v1/customers?search=Render", Token));
+
+        using var anonymous = Browser();
+        await TestAuthentication.RefreshCsrfAsync(anonymous);
+        for (var i = 4; i <= settings.EntryPerMinute; i++)
+        {
+            using var entry = new HttpRequestMessage(HttpMethod.Post, "/api/v1/demo/sessions") { Content = JsonContent.Create(new { mode = "Viewer" }) };
+            entry.Headers.Add("X-Forwarded-For", $"198.51.100.{i}");
+            entry.Headers.Add("Forwarded", $"for=198.51.100.{i};proto=https");
+            using var response = await anonymous.SendAsync(entry, Token);
+            Assert.Equal(i == settings.EntryPerMinute ? HttpStatusCode.TooManyRequests : HttpStatusCode.Conflict, response.StatusCode);
+        }
+
+        const string negotiatePath = "/hubs/logistics/negotiate?negotiateVersion=1";
+        using var badOrigin = new HttpRequestMessage(HttpMethod.Post, negotiatePath);
+        badOrigin.Headers.Add("Origin", "http://" + DeploymentSecurityTests.RenderHost);
+        using var denied = await dispatcher.SendAsync(badOrigin, Token);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.Contains("origin_forbidden", await denied.Content.ReadAsStringAsync(Token));
+        using var invalidCsrf = new HttpRequestMessage(HttpMethod.Post, negotiatePath);
+        invalidCsrf.Headers.Add("Origin", origin);
+        invalidCsrf.Headers.Add("X-CSRF-TOKEN", "invalid");
+        using var deniedCsrf = await dispatcher.SendAsync(invalidCsrf, Token);
+        Assert.Equal(HttpStatusCode.BadRequest, deniedCsrf.StatusCode);
+
+        using var valid = new HttpRequestMessage(HttpMethod.Post, negotiatePath);
+        valid.Headers.Add("Origin", origin);
+        using var negotiated = await dispatcher.SendAsync(valid, Token);
+        Assert.Equal(HttpStatusCode.OK, negotiated.StatusCode);
+        using var payload = JsonDocument.Parse(await negotiated.Content.ReadAsStringAsync(Token));
+        Assert.Contains(payload.RootElement.GetProperty("availableTransports").EnumerateArray(), x => x.GetProperty("transport").GetString() == "WebSockets");
+        var connectionToken = payload.RootElement.GetProperty("connectionToken").GetString()!;
+        var websocketUrl = new Uri($"wss://{DeploymentSecurityTests.RenderHost}/hubs/logistics?id={Uri.EscapeDataString(connectionToken)}");
+
+        Task<WebSocket> ConnectWebSocket(string? originHeader)
+        {
+            var client = render.Server.CreateWebSocketClient();
+            client.ConfigureRequest = request =>
+            {
+                request.Headers.Cookie = dispatcherCookies.Value;
+                request.Headers["X-Forwarded-Proto"] = "http";
+                request.Headers["X-Forwarded-Host"] = "evil.example";
+                if (originHeader is not null) request.Headers.Origin = originHeader;
+            };
+            return client.ConnectAsync(websocketUrl, Token);
+        }
+
+        foreach (var originHeader in new[] { null, "https://evil.example" })
+        {
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => ConnectWebSocket(originHeader));
+            Assert.Contains("403", failure.Message);
+        }
+        using var socket = await ConnectWebSocket(origin);
+        using var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        handshakeTimeout.CancelAfter(TimeSpan.FromSeconds(10));
+        await socket.SendAsync(Encoding.UTF8.GetBytes("{\"protocol\":\"json\",\"version\":1}\u001e").AsMemory(),
+            WebSocketMessageType.Text, true, handshakeTimeout.Token);
+        var frame = new byte[256];
+        var handshake = await socket.ReceiveAsync(frame.AsMemory(), handshakeTimeout.Token);
+        Assert.Equal("{}\u001e", Encoding.UTF8.GetString(frame, 0, handshake.Count));
+    }
+
     [Fact]
     public async Task Viewer_is_a_real_bounded_identity_and_cannot_write_or_administer()
     {
@@ -438,10 +560,10 @@ public sealed class PortfolioTests(PostgreSqlFixture postgres) : IClassFixture<P
         hubs.Add(hub); hub.On<LogisticsNotification>("LogisticsChanged", item => events.Writer.TryWrite(item));
         await hub.StartAsync(Token); await hub.InvokeAsync("Ready", Token); return (hub, events);
     }
-    private sealed class Cookies : DelegatingHandler
+    private sealed class Cookies(string origin = "https://localhost") : DelegatingHandler
     {
         private readonly CookieContainer cookies = new();
-        public string Value => cookies.GetCookieHeader(new("https://localhost"));
+        public string Value => cookies.GetCookieHeader(new(origin));
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var header = cookies.GetCookieHeader(request.RequestUri!);
@@ -450,6 +572,19 @@ public sealed class PortfolioTests(PostgreSqlFixture postgres) : IClassFixture<P
             if (response.Headers.TryGetValues("Set-Cookie", out var values)) foreach (var value in values) cookies.SetCookies(request.RequestUri!, value);
             return response;
         }
+    }
+    private sealed class RenderTransportPeer : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, continuation) =>
+            {
+                context.Connection.RemoteIpAddress = IPAddress.Parse("192.0.2.10");
+                context.Request.Scheme = "http";
+                return continuation(context);
+            });
+            next(app);
+        };
     }
     private sealed class ReadBarrier : IAsyncActionFilter
     {

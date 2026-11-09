@@ -109,18 +109,25 @@ if (migrate || seed || seedUsers)
 
 if (app.Environment.IsProduction())
 {
-    app.Use((context, next) =>
+    var renderHost = app.Services.GetRequiredService<DeploymentSecrets>().RenderFreeHostname;
+    if (renderHost is not null)
+        app.Use((context, next) => DeploymentSecurity.RenderFreeEdgeAsync(context, next, renderHost));
+    else
     {
-        if (context.Connection.RemoteIpAddress is null)
+        app.Use((context, next) =>
         {
-            context.Request.Headers.Remove("X-Forwarded-For");
-            context.Request.Headers.Remove("X-Forwarded-Proto");
-        }
-        return next(context);
-    });
-    app.UseForwardedHeaders();
+            if (context.Connection.RemoteIpAddress is null)
+            {
+                context.Request.Headers.Remove("X-Forwarded-For");
+                context.Request.Headers.Remove("X-Forwarded-Proto");
+            }
+            return next(context);
+        });
+        app.UseForwardedHeaders();
+    }
     app.UseHsts();
-    app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseHttpsRedirection());
+    if (renderHost is null)
+        app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseHttpsRedirection());
 }
 app.Use(DeploymentSecurity.HeadersAsync);
 app.UseExceptionHandler();

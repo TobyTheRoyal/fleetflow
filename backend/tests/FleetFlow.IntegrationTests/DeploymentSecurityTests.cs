@@ -14,6 +14,97 @@ namespace FleetFlow.IntegrationTests;
 public sealed class DeploymentSecurityTests(PostgreSqlFixture postgres) : IClassFixture<PostgreSqlFixture>
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;
+    internal const string RenderHost = "fleetflow-test.onrender.com";
+    internal const string RenderOrigin = "https://" + RenderHost;
+
+    internal static Dictionary<string, string?> RenderSettings() => new()
+    {
+        ["Deployment:RenderFreeEdgeHttps"] = "true",
+        ["Deployment:PublicOrigin"] = RenderOrigin,
+        ["AllowedHosts"] = RenderHost,
+        ["RENDER"] = "true",
+        ["RENDER_SERVICE_TYPE"] = "web",
+        ["RENDER_EXTERNAL_URL"] = RenderOrigin,
+        ["RENDER_EXTERNAL_HOSTNAME"] = RenderHost
+    };
+
+    [Theory]
+    [InlineData("RENDER", null)]
+    [InlineData("RENDER", "false")]
+    [InlineData("RENDER_SERVICE_TYPE", "pserv")]
+    [InlineData("RENDER_EXTERNAL_HOSTNAME", null)]
+    [InlineData("RENDER_EXTERNAL_HOSTNAME", "evil.example")]
+    [InlineData("RENDER_EXTERNAL_HOSTNAME", "fleetflow-test.onrender.com.evil.example")]
+    [InlineData("RENDER_EXTERNAL_URL", null)]
+    [InlineData("RENDER_EXTERNAL_URL", "http://" + RenderHost)]
+    [InlineData("RENDER_EXTERNAL_URL", RenderOrigin + "/path")]
+    [InlineData("RENDER_EXTERNAL_URL", "https://other.onrender.com")]
+    [InlineData("Deployment:PublicOrigin", "https://other.onrender.com")]
+    [InlineData("AllowedHosts", "other.onrender.com")]
+    [InlineData("AllowedHosts", RenderHost + ";other.onrender.com")]
+    [InlineData("Deployment:TrustedProxies:0", "127.0.0.1")]
+    [InlineData("Deployment:TrustedNetworks:0", "0.0.0.0/0")]
+    [InlineData("ASPNETCORE_FORWARDEDHEADERS_ENABLED", "true")]
+    public void Render_configuration_fails_closed_on_invalid_metadata_or_mixed_trust(string key, string? value)
+    {
+        var values = Settings();
+        foreach (var setting in RenderSettings()) values[setting.Key] = setting.Value;
+        values[key] = value;
+        Assert.Throws<InvalidOperationException>(() => new DeploymentSecrets(new ConfigurationBuilder().AddInMemoryCollection(values).Build()));
+    }
+
+    [Fact]
+    public async Task Render_serves_the_spa_over_the_internal_http_hop_and_rejects_the_wrong_host()
+    {
+        var webRoot = Directory.CreateTempSubdirectory();
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "index.html"), "<!doctype html><div id=\"root\"></div>", Token);
+            var settings = RenderSettings();
+            settings["SERVE_SPA"] = "true";
+            settings["webroot"] = webRoot.FullName;
+            await using var app = new FleetFlowApiFactory(postgres.ConnectionString, "Production", configurationOverrides: settings);
+            using var client = app.CreateClient(new() { BaseAddress = new("http://" + RenderHost), AllowAutoRedirect = false });
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/shipments/example");
+            request.Headers.Add("X-Forwarded-Proto", "http");
+            request.Headers.Add("X-Forwarded-Host", "evil.example");
+            request.Headers.Add("Forwarded", "proto=http;host=evil.example");
+            using var page = await client.SendAsync(request, Token);
+            Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+            Assert.Contains("id=\"root\"", await page.Content.ReadAsStringAsync(Token));
+            Assert.Contains("max-age=2592000", page.Headers.GetValues("Strict-Transport-Security").Single());
+            Assert.Contains("wss://" + RenderHost, page.Headers.GetValues("Content-Security-Policy").Single());
+            Assert.Null(page.Headers.Location);
+
+            foreach (var host in new[] { "evil.example", RenderHost + ":10000" })
+            {
+                using var wrong = new HttpRequestMessage(HttpMethod.Get, "/health");
+                wrong.Headers.Host = host;
+                wrong.Headers.Add("X-Forwarded-Host", RenderHost);
+                using var rejected = await client.SendAsync(wrong, Token);
+                Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+            }
+        }
+        finally
+        {
+            webRoot.Delete(recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("Production", HttpStatusCode.TemporaryRedirect)]
+    [InlineData("Development", HttpStatusCode.NotFound)]
+    public async Task Render_metadata_alone_does_not_enable_the_mode_and_development_ignores_it(string environment, HttpStatusCode expected)
+    {
+        var values = RenderSettings();
+        values["Deployment:RenderFreeEdgeHttps"] = environment == "Development" ? "true" : "false";
+        await using var app = new FleetFlowApiFactory(postgres.ConnectionString, environment, configurationOverrides: values);
+        using var client = app.CreateClient(new() { BaseAddress = new("http://" + RenderHost), AllowAutoRedirect = false });
+        using var response = await client.GetAsync("/api/v1/demo", Token);
+        Assert.Equal(expected, response.StatusCode);
+        Assert.False(response.Headers.Contains("Strict-Transport-Security"));
+    }
+
     [Theory]
     [InlineData("Deployment:PublicOrigin", "http://localhost")]
     [InlineData("Deployment:PublicOrigin", "https://localhost/path")]
