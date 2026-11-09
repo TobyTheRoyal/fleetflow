@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -30,6 +30,9 @@ const user = {
   },
 }
 const denied = () => json({ code: 'authentication_required' }, 401)
+beforeEach(() => {
+  user.demo.expiresAtUtc = new Date(Date.now() + 1800000).toISOString()
+})
 afterEach(() => vi.unstubAllGlobals())
 function Workspace() {
   const session = useSession()
@@ -100,19 +103,35 @@ it('bootstrap offers recovery when the sleeping service is unavailable', async (
   await screen.findByRole('heading', { name: 'Demo ready' })
 })
 it('shows real capacities and creates exactly one explicitly requested session', async () => {
-  const fetch = mockApi((path) =>
-    path.endsWith('/demo')
-      ? json(availability)
-      : path.endsWith('/sessions')
-        ? json(user)
-        : denied(),
-  )
-  mount()
+  let authenticated = false
+  const fetch = mockApi((path) => {
+    if (path.endsWith('/demo')) return json(availability)
+    if (path.endsWith('/sessions')) {
+      authenticated = true
+      return json(user)
+    }
+    if (path.endsWith('/auth/me')) return authenticated ? json(user) : denied()
+    throw new Error(`Unexpected demo test request: ${path}`)
+  })
+  const cache = mount()
   await screen.findByText('3 interactive sandboxes available')
   await userEvent.click(
     screen.getByRole('button', { name: 'Start Interactive Demo' }),
   )
   await screen.findByRole('heading', { name: 'Demo Dispatcher' })
+  const beforeRefetch = fetch.mock.calls.filter(([url]) =>
+    url.endsWith('/auth/me'),
+  ).length
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: ['session'] })
+  })
+  expect(
+    fetch.mock.calls.filter(([url]) => url.endsWith('/auth/me')).length,
+  ).toBeGreaterThan(beforeRefetch)
+  expect(screen.getByRole('heading', { name: 'Demo Dispatcher' })).toBeVisible()
+  expect(
+    screen.queryByText(/Your temporary demo session has ended/),
+  ).not.toBeInTheDocument()
   expect(
     fetch.mock.calls.filter(([url]) => url.endsWith('/sessions')),
   ).toHaveLength(1)

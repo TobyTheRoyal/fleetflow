@@ -85,3 +85,7 @@ No Render/Neon resource, hosted secret, proxy address or billing configuration h
 Fixed schemas require a reviewed matching upgrade for future domain migrations; initialized databases deliberately refuse downgrade to M6. Viewer seed dates age until reviewed refresh. Capacity/write bounds reduce abuse but do not defeat distributed denial-of-service. SignalR/IP limits remain single-instance, notifications best-effort, and provider sleep/quota exhaustion can reduce availability. No container OS CVE scanner, penetration test, full hosted disaster-recovery rehearsal or legal certification is claimed.
 
 Official plan assumptions and manual approval gates are in `ZERO_COST_DEPLOYMENT.md`; exact operational steps are in `deployment.md`. Free tiers may change. Never compensate for a free limit by enabling paid services. No paid service, external inference, deployment, commit or push was performed.
+
+## Subsequent hosted CI review
+
+After the initial local verification, commit `4827fc8` was pushed by the owner. Hosted run 42648373939 passed Backend (including the Production Docker rehearsal) and Chromium/Firefox/WebKit, but failed the frontend demo-login test because of an inconsistent authentication mock. See [the focused CI stabilization report](m7-ci-stabilization.md) for the reproduced failure, correction, repeated local/Linux verification and pending hosted confirmation of that correction. The earlier hosted-status paragraph records the initial verification boundary.
