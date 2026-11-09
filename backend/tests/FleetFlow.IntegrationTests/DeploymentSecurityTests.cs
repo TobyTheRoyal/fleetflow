@@ -35,6 +35,26 @@ public sealed class DeploymentSecurityTests(PostgreSqlFixture postgres) : IClass
         Assert.Throws<InvalidOperationException>(() => new DeploymentSecrets(new ConfigurationBuilder().AddInMemoryCollection(values).Build()));
     }
     [Theory]
+    [InlineData("direct.example", "direct.example", 5432, "VerifyFull", true)]
+    [InlineData("", "direct.example", 5432, "VerifyFull", false)]
+    [InlineData("other.example", "direct.example", 5432, "VerifyFull", false)]
+    [InlineData("direct.example", "other.example", 5432, "VerifyFull", false)]
+    [InlineData("direct.example", "direct.example", 6432, "VerifyFull", false)]
+    [InlineData("direct.example", "direct.example", 5432, "Require", false)]
+    public void Initialization_requires_the_confirmed_endpoint_and_secure_runtime_connection(string confirmedHost, string runtimeHost, int runtimePort, string sslMode, bool valid)
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["Portfolio:ConfirmHost"] = confirmedHost,
+            ["Portfolio:ProvisionLogins"] = "true",
+            ["ConnectionStrings:FleetFlow"] = "Host=direct.example;Database=portfolio;SSL Mode=VerifyFull",
+            ["ConnectionStrings:PortfolioRuntime"] = $"Host={runtimeHost};Port={runtimePort};Database=portfolio;SSL Mode={sslMode};Maximum Pool Size=10"
+        };
+        var config = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        if (valid) DeploymentSecrets.ValidateInitializationTarget(config);
+        else Assert.Throws<InvalidOperationException>(() => DeploymentSecrets.ValidateInitializationTarget(config));
+    }
+    [Theory]
     [InlineData(false, HttpStatusCode.TemporaryRedirect)]
     [InlineData(true, HttpStatusCode.NotFound)]
     public async Task Forwarded_https_is_accepted_only_from_an_explicit_trusted_peer(bool trusted, HttpStatusCode expected)
@@ -88,6 +108,23 @@ public sealed class DeploymentSecurityTests(PostgreSqlFixture postgres) : IClass
         using var entry = await client.PostAsync("/api/v1/demo/sessions", new StringContent("{\"mode\":\"Dispatcher\"}", System.Text.Encoding.UTF8, "application/json"), Token);
         Assert.Equal(HttpStatusCode.OK, entry.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/shipments", Token)).StatusCode);
+
+        var unexpectedGroup = "unexpected_" + suffix;
+        await using (var extra = new NpgsqlCommand($"CREATE ROLE {unexpectedGroup} NOLOGIN; GRANT {unexpectedGroup} TO {maintenanceName}", admin))
+            await extra.ExecuteNonQueryAsync(Token);
+        var otherRuntime = new NpgsqlConnectionStringBuilder(runtime) { Username = "other_web_" + suffix };
+        await using var unsafeSetup = new FleetFlowApiFactory(connection, configurationOverrides: new Dictionary<string, string?>
+        {
+            ["Portfolio:Enabled"] = "true",
+            ["ConnectionStrings:PortfolioRuntime"] = otherRuntime.ConnectionString,
+            ["ConnectionStrings:PortfolioMaintenance"] = maintenance
+        });
+        await using var unsafeScope = unsafeSetup.Services.CreateAsyncScope();
+        var error = await Assert.ThrowsAsync<PostgresException>(() => unsafeScope.ServiceProvider.GetRequiredService<PortfolioInitializer>().ProvisionLoginsAsync(Token));
+        Assert.Equal("Unsafe existing portfolio role", error.MessageText);
+        await using var roleCheck = new NpgsqlCommand("SELECT EXISTS (SELECT FROM pg_roles WHERE rolname=@role)", admin);
+        roleCheck.Parameters.AddWithValue("role", otherRuntime.Username!);
+        Assert.Equal(false, await roleCheck.ExecuteScalarAsync(Token));
     }
     private Dictionary<string, string?> Settings() => new()
     {

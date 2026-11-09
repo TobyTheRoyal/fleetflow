@@ -10,6 +10,10 @@ on:
         description: 'Exact existing database name; this does not create cloud resources'
         required: true
         type: string
+      confirm_host:
+        description: 'Exact direct PostgreSQL hostname for the reviewed branch'
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
@@ -47,6 +51,7 @@ jobs:
           INITIALIZATION_ENV: ${{ secrets.INITIALIZATION_ENV }}
           CERTIFICATE_BASE64: ${{ secrets.DATA_PROTECTION_PFX_BASE64 }}
           CONFIRM_DATABASE: ${{ inputs.confirm_database }}
+          CONFIRM_HOST: ${{ inputs.confirm_host }}
         shell: bash
         run: |
           set -euo pipefail
@@ -61,4 +66,4 @@ jobs:
           export FLEETFLOW_RELEASE_IMAGE=fleetflow-reviewed:initialization
           export FLEETFLOW_INITIALIZATION_ENV="$secret_dir/initialization.env"
           export FLEETFLOW_CERTIFICATE_DIRECTORY="$secret_dir"
-          sh scripts/initialize-portfolio.sh --confirm-database "$CONFIRM_DATABASE"
+          sh scripts/initialize-portfolio.sh --confirm-database "$CONFIRM_DATABASE" --confirm-host "$CONFIRM_HOST"

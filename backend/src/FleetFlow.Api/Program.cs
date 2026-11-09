@@ -75,11 +75,24 @@ var app = builder.Build();
 
 if (initializePortfolio)
 {
-    if (app.Environment.IsProduction()) _ = app.Services.GetRequiredService<DeploymentSecrets>();
+    if (app.Environment.IsProduction())
+    {
+        _ = app.Services.GetRequiredService<DeploymentSecrets>();
+        DeploymentSecrets.ValidateInitializationTarget(builder.Configuration);
+    }
     await using var scope = app.Services.CreateAsyncScope();
     var initializer = scope.ServiceProvider.GetRequiredService<PortfolioInitializer>();
     await initializer.InitializeAsync(builder.Configuration["Portfolio:ConfirmDatabase"] ?? "", default);
-    if (builder.Configuration.GetValue<bool>("Portfolio:ProvisionLogins")) await initializer.ProvisionLoginsAsync(default);
+    if (builder.Configuration.GetValue<bool>("Portfolio:ProvisionLogins"))
+    {
+        try { await initializer.ProvisionLoginsAsync(default); }
+        catch (Npgsql.PostgresException error)
+        {
+            // A PostgreSQL error context can contain dynamic CREATE ROLE SQL, including its password.
+            Console.Error.WriteLine($"Portfolio login provisioning failed (SQLSTATE {error.SqlState}). Review the target roles and privileges.");
+            Environment.ExitCode = 1;
+        }
+    }
     return;
 }
 

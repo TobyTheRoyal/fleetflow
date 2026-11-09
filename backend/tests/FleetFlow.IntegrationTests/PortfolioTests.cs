@@ -320,7 +320,15 @@ public sealed class PortfolioTests(PostgreSqlFixture postgres) : IClassFixture<P
     public async Task Runtime_cannot_reset_tables_or_disable_immutable_history()
     {
         await using var connection = new NpgsqlConnection(runtimeConnection); await connection.OpenAsync(Token);
-        foreach (var sql in new[] { "SELECT * FROM public.\"ShipmentEvents\"", "TRUNCATE portfolio_dispatch_1.\"ShipmentEvents\"", "ALTER TABLE portfolio_dispatch_1.\"ShipmentEvents\" DISABLE TRIGGER ALL", "SELECT public.portfolio_prepare_slot(11,gen_random_uuid(),now())" })
+        foreach (var sql in new[]
+        {
+            "SELECT * FROM public.\"ShipmentEvents\"", "TRUNCATE portfolio_dispatch_1.\"ShipmentEvents\"",
+            "ALTER TABLE portfolio_dispatch_1.\"ShipmentEvents\" DISABLE TRIGGER ALL",
+            "SELECT public.portfolio_prepare_slot(11,gen_random_uuid(),now())",
+            "SELECT * FROM portfolio_template.\"Shipments\"", "DELETE FROM public.\"DataProtectionKeys\" WHERE false",
+            "UPDATE portfolio_viewer.\"Customers\" SET \"Name\" = 'Forbidden' WHERE false",
+            "DELETE FROM portfolio_dispatch_1.\"Shipments\" WHERE false", "CREATE TABLE public.forbidden (id int)"
+        })
         {
             await using var command = new NpgsqlCommand(sql, connection);
             var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(Token));
@@ -332,6 +340,27 @@ public sealed class PortfolioTests(PostgreSqlFixture postgres) : IClassFixture<P
         Assert.Equal(PostgresErrorCodes.CheckViolation, immutable.SqlState);
     }
     [Fact]
+    public async Task Maintenance_can_only_execute_the_fenced_reset()
+    {
+        await using var connection = new NpgsqlConnection(maintenanceConnection);
+        await connection.OpenAsync(Token);
+        foreach (var sql in new[]
+        {
+            "SELECT public.portfolio_copy_seed('portfolio_dispatch_1',now())",
+            "SELECT * FROM public.\"PortfolioSlots\"", "SELECT * FROM public.\"AspNetUsers\"",
+            "DELETE FROM public.\"AiAttempts\" WHERE false", "SELECT * FROM public.\"DataProtectionKeys\"",
+            "TRUNCATE portfolio_dispatch_1.\"ShipmentEvents\"", "CREATE TABLE public.forbidden (id int)"
+        })
+        {
+            await using var command = new NpgsqlCommand(sql, connection);
+            var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(Token));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, failure.SqlState);
+        }
+        await using var wrongLease = new NpgsqlCommand("SELECT public.portfolio_prepare_slot(11,gen_random_uuid(),now())", connection);
+        var rejected = await Assert.ThrowsAsync<PostgresException>(() => wrongLease.ExecuteNonQueryAsync(Token));
+        Assert.Equal(PostgresErrorCodes.NoDataFound, rejected.SqlState);
+    }
+    [Fact]
     public async Task Initialization_is_idempotent_and_downgrade_is_refused()
     {
         var (client, user) = await Start("Dispatcher"); using var owned = client;
@@ -341,6 +370,13 @@ public sealed class PortfolioTests(PostgreSqlFixture postgres) : IClassFixture<P
         var options = new DbContextOptionsBuilder<FleetFlowDbContext>().UseNpgsql(ownerConnection).Options;
         await using var db = new FleetFlowDbContext(options);
         await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync("20261108214714_AddAiUsageLedger", Token));
+        await db.Database.ExecuteSqlRawAsync("""
+            DELETE FROM public."__EFMigrationsHistory" WHERE "MigrationId" = '20261109141046_AddPortfolioLeases';
+            UPDATE public."PortfolioCatalog" SET "MigrationId" = '20261108214714_AddAiUsageLedger';
+            """, Token);
+        var drift = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<PortfolioInitializer>().InitializeAsync(database, Token));
+        Assert.Contains("explicit reviewed schema upgrade", drift.Message);
     }
     [Fact]
     public async Task Anonymous_entry_requires_csrf_and_rejects_invalid_roles_and_excessive_requests()

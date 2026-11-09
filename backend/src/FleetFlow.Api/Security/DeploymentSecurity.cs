@@ -67,6 +67,21 @@ public sealed class DeploymentSecrets : IDisposable
 {
     public X509Certificate2 Certificate { get; }
     public X509Certificate2[] Certificates { get; }
+
+    public static void ValidateInitializationTarget(IConfiguration config)
+    {
+        var owner = new NpgsqlConnectionStringBuilder(config.GetConnectionString("FleetFlow"));
+        var host = config["Portfolio:ConfirmHost"];
+        if (string.IsNullOrWhiteSpace(host) || host.Contains(',') ||
+            !string.Equals(owner.Host, host, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Explicit PostgreSQL host confirmation does not match the initialization connection.");
+        if (!config.GetValue<bool>("Portfolio:ProvisionLogins")) return;
+        var runtime = new NpgsqlConnectionStringBuilder(config.GetConnectionString("PortfolioRuntime"));
+        if (runtime.SslMode != SslMode.VerifyFull || runtime.MinPoolSize != 0 || runtime.MaxPoolSize > 10 ||
+            runtime.KeepAlive != 0 || runtime.Host != owner.Host || runtime.Port != owner.Port || runtime.Database != owner.Database)
+            throw new InvalidOperationException("The provisioned runtime connection must target the confirmed direct database with VerifyFull and a bounded pool.");
+    }
+
     public DeploymentSecrets(IConfiguration config)
     {
         if (config.GetValue<bool>("ASPNETCORE_FORWARDEDHEADERS_ENABLED") || config.GetValue<bool>("FORWARDEDHEADERS_ENABLED"))
@@ -77,12 +92,12 @@ public sealed class DeploymentSecrets : IDisposable
         if (hosts.Length == 0 || hosts.Any(h => h.Contains('*')) || !hosts.Contains(origin.Host, StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException("Production requires explicit AllowedHosts matching the public origin.");
         var connection = new NpgsqlConnectionStringBuilder(config.GetConnectionString("FleetFlow"));
-        if (connection.SslMode != SslMode.VerifyFull || connection.MaxPoolSize > 10 || connection.MinPoolSize != 0 || connection.KeepAlive != 0 || (connection.Host ?? "").Contains("-pooler", StringComparison.OrdinalIgnoreCase))
+        if (connection.SslMode != SslMode.VerifyFull || connection.MaxPoolSize > 10 || connection.MinPoolSize != 0 || connection.KeepAlive != 0 || string.IsNullOrWhiteSpace(connection.Host) || connection.Host.Contains(',') || connection.Host.Contains("-pooler", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Production requires direct PostgreSQL VerifyFull TLS, minimum pool 0, maximum pool <=10, and no keepalive queries.");
         if (config.GetValue<bool>("Portfolio:Enabled"))
         {
             var maintenance = new NpgsqlConnectionStringBuilder(config.GetConnectionString("PortfolioMaintenance"));
-            if (maintenance.SslMode != SslMode.VerifyFull || maintenance.MaxPoolSize > 2 || maintenance.MinPoolSize != 0 || maintenance.KeepAlive != 0 || maintenance.Username == connection.Username || maintenance.Database != connection.Database || maintenance.Host != connection.Host)
+            if (maintenance.SslMode != SslMode.VerifyFull || maintenance.MaxPoolSize > 2 || maintenance.MinPoolSize != 0 || maintenance.KeepAlive != 0 || maintenance.Username == connection.Username || maintenance.Database != connection.Database || maintenance.Host != connection.Host || maintenance.Port != connection.Port)
                 throw new InvalidOperationException("Portfolio maintenance requires a separate restricted login, the same direct database, VerifyFull TLS and a pool of at most two connections.");
         }
         var certificateFile = config["DataProtection:CertificatePath"];

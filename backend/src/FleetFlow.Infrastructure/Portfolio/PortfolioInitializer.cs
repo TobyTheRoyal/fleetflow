@@ -14,26 +14,46 @@ public sealed class PortfolioInitializer(IdentityPersistence identity, UserManag
 {
     public async Task ProvisionLoginsAsync(CancellationToken token)
     {
-        await using var owner = new NpgsqlConnection(configuration.GetConnectionString("FleetFlow"));
+        var target = new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("FleetFlow"));
+        var runtime = new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("PortfolioRuntime"));
+        var maintenance = new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("PortfolioMaintenance"));
+        if (runtime.Username == maintenance.Username)
+            throw new InvalidOperationException("Provisioning requires distinct runtime and maintenance logins.");
+        await using var owner = new NpgsqlConnection(target.ConnectionString);
         await owner.OpenAsync(token);
-        foreach (var (key, group) in new[] { ("PortfolioRuntime", "fleetflow_portfolio_runtime"), ("PortfolioMaintenance", "fleetflow_portfolio_maintenance") })
+        await using var transaction = await owner.BeginTransactionAsync(token);
+        foreach (var (login, group) in new[] { (runtime, "fleetflow_portfolio_runtime"), (maintenance, "fleetflow_portfolio_maintenance") })
         {
-            var login = new NpgsqlConnectionStringBuilder(configuration.GetConnectionString(key));
-            if (login.Database != owner.Database || login.Username == owner.UserName || string.IsNullOrEmpty(login.Username) || (login.Password?.Length ?? 0) < 24)
+            if (login.Database != owner.Database || login.Host != target.Host || login.Port != target.Port ||
+                login.Username == owner.UserName || string.IsNullOrWhiteSpace(login.Username) || (login.Password?.Length ?? 0) < 24)
                 throw new InvalidOperationException("Provisioning requires distinct runtime/maintenance logins, the confirmed database and generated secrets of at least 24 characters.");
             await using var command = new NpgsqlCommand("""
-                SELECT set_config('portfolio.login',@login,false),set_config('portfolio.password',@password,false),set_config('portfolio.group',@group,false);
+                SELECT set_config('portfolio.login',@login,true),set_config('portfolio.password',@password,true),set_config('portfolio.group',@group,true);
                 DO $$ DECLARE account text := current_setting('portfolio.login'); permission_group text := current_setting('portfolio.group'); BEGIN
+                  IF octet_length(account)>current_setting('max_identifier_length')::integer THEN
+                    RAISE EXCEPTION 'Portfolio login name exceeds PostgreSQL identifier length';
+                  END IF;
+                  IF NOT EXISTS (SELECT FROM pg_roles r WHERE r.rolname=permission_group
+                    AND NOT (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+                    AND NOT EXISTS (SELECT FROM pg_auth_members m WHERE m.member=r.oid)) THEN
+                    RAISE EXCEPTION 'Unsafe portfolio permission group';
+                  END IF;
                   IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname=account) THEN
                     EXECUTE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',account,current_setting('portfolio.password'));
                   END IF;
-                  IF EXISTS(SELECT FROM pg_roles WHERE rolname=account AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls)) THEN RAISE EXCEPTION 'Unsafe existing portfolio role'; END IF;
+                  IF EXISTS (SELECT FROM pg_roles r WHERE r.rolname=account AND (
+                    NOT rolcanlogin OR NOT rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls
+                    OR EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles g ON g.oid=m.roleid WHERE m.member=r.oid
+                      AND (g.rolname<>permission_group OR m.admin_option OR NOT m.inherit_option)))) THEN
+                    RAISE EXCEPTION 'Unsafe existing portfolio role';
+                  END IF;
                   EXECUTE format('GRANT %I TO %I',permission_group,account);
                 END $$;
-                """, owner);
+                """, owner, transaction);
             command.Parameters.AddWithValue("login", login.Username); command.Parameters.AddWithValue("password", login.Password!); command.Parameters.AddWithValue("group", group);
             await command.ExecuteNonQueryAsync(token);
         }
+        await transaction.CommitAsync(token);
     }
     public async Task InitializeAsync(string expectedDatabase, CancellationToken token)
     {
@@ -45,19 +65,25 @@ public sealed class PortfolioInitializer(IdentityPersistence identity, UserManag
         var options = new DbContextOptionsBuilder<FleetFlowDbContext>().UseNpgsql(owner)
             .ReplaceService<IModelCacheKeyFactory, PortfolioModelCacheKey>().Options;
         await using var normal = new FleetFlowDbContext(options);
-        await normal.Database.MigrateAsync(token);
         await using var gate = new NpgsqlCommand("SELECT pg_advisory_lock(741070001)", owner);
         await gate.ExecuteNonQueryAsync(token);
         var rebound = false;
         try
         {
-            var initialized = await identity.Database.SqlQueryRaw<bool>("SELECT EXISTS(SELECT 1 FROM public.\"PortfolioSlots\") AS \"Value\"").SingleAsync(token);
-            if (initialized)
+            await using var slots = new NpgsqlCommand("SELECT to_regclass('public.\"PortfolioSlots\"') IS NOT NULL", owner);
+            if (await slots.ExecuteScalarAsync(token) is true)
             {
-                await using var catalogCheck = new NpgsqlCommand("SELECT \"MigrationId\"=(SELECT \"MigrationId\" FROM public.\"__EFMigrationsHistory\" ORDER BY \"MigrationId\" DESC LIMIT 1) FROM public.\"PortfolioCatalog\" WHERE \"Id\"=1", owner);
-                if (await catalogCheck.ExecuteScalarAsync(token) is not true) throw new InvalidOperationException("Existing portfolio schemas require an explicit reviewed schema upgrade; initialization never silently replaces visitor data.");
-                return; // Never reset active leases, passwords, certificates, budgets or live demo data on re-run.
+                await using var initialized = new NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM public.\"PortfolioSlots\")", owner);
+                if (await initialized.ExecuteScalarAsync(token) is true)
+                {
+                    await using var catalogCheck = new NpgsqlCommand("SELECT \"MigrationId\"=(SELECT \"MigrationId\" FROM public.\"__EFMigrationsHistory\" ORDER BY \"MigrationId\" DESC LIMIT 1) FROM public.\"PortfolioCatalog\" WHERE \"Id\"=1", owner);
+                    var applied = await normal.Database.GetAppliedMigrationsAsync(token);
+                    if (await catalogCheck.ExecuteScalarAsync(token) is not true || !applied.SequenceEqual(normal.Database.GetMigrations()))
+                        throw new InvalidOperationException("Existing portfolio schemas require an explicit reviewed schema upgrade; initialization never silently replaces visitor data.");
+                    return; // Never reset active leases, passwords, certificates, budgets or live demo data on re-run.
+                }
             }
+            await normal.Database.MigrateAsync(token);
             await using var transaction = await owner.BeginTransactionAsync(token);
             identity.Database.SetDbConnection(owner, contextOwnsConnection: false);
             rebound = true;
@@ -111,7 +137,7 @@ public sealed class PortfolioInitializer(IdentityPersistence identity, UserManag
                 REVOKE ALL ON public."ShipmentEvents" FROM fleetflow_portfolio_runtime;
                 REVOKE ALL ON public."DataProtectionKeys" FROM fleetflow_portfolio_runtime;
                 GRANT SELECT, INSERT ON public."DataProtectionKeys" TO fleetflow_portfolio_runtime;
-                GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fleetflow_portfolio_runtime;
+                GRANT USAGE ON SEQUENCE public."ShipmentNumberSequence", public."DataProtectionKeys_Id_seq" TO fleetflow_portfolio_runtime;
                 REVOKE ALL ON FUNCTION public.portfolio_copy_seed(text,timestamptz) FROM PUBLIC, fleetflow_portfolio_runtime, fleetflow_portfolio_maintenance;
                 REVOKE ALL ON FUNCTION public.portfolio_prepare_slot(integer,uuid,timestamptz) FROM PUBLIC, fleetflow_portfolio_runtime;
                 GRANT EXECUTE ON FUNCTION public.portfolio_prepare_slot(integer,uuid,timestamptz) TO fleetflow_portfolio_maintenance;
@@ -147,11 +173,16 @@ public sealed class PortfolioInitializer(IdentityPersistence identity, UserManag
               FOR EACH ROW EXECUTE FUNCTION public.prevent_shipment_event_mutation();
             REVOKE ALL ON SCHEMA "{schema}" FROM PUBLIC;
             GRANT USAGE ON SCHEMA "{schema}" TO fleetflow_portfolio_runtime;
-            GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA "{schema}" TO fleetflow_portfolio_runtime;
-            REVOKE ALL ON "{schema}"."ShipmentEvents" FROM fleetflow_portfolio_runtime;
-            GRANT SELECT, INSERT ON "{schema}"."ShipmentEvents" TO fleetflow_portfolio_runtime;
             """, token);
-        if (schema == "portfolio_template") await Execute(connection, $"REVOKE ALL ON SCHEMA \"{schema}\" FROM fleetflow_portfolio_runtime; REVOKE ALL ON ALL TABLES IN SCHEMA \"{schema}\" FROM fleetflow_portfolio_runtime", token);
+        if (schema == "portfolio_template")
+            await Execute(connection, $"REVOKE ALL ON SCHEMA \"{schema}\" FROM fleetflow_portfolio_runtime", token);
+        else if (schema == "portfolio_viewer")
+            await Execute(connection, $"GRANT SELECT ON ALL TABLES IN SCHEMA \"{schema}\" TO fleetflow_portfolio_runtime", token);
+        else
+            await Execute(connection, $"""
+                GRANT SELECT, INSERT, UPDATE ON "{schema}"."Drivers", "{schema}"."Vehicles", "{schema}"."Shipments" TO fleetflow_portfolio_runtime;
+                GRANT SELECT, INSERT ON "{schema}"."Customers", "{schema}"."ShipmentEvents" TO fleetflow_portfolio_runtime;
+                """, token);
     }
     private static async Task Execute(NpgsqlConnection connection, string sql, CancellationToken token)
     {
@@ -159,7 +190,7 @@ public sealed class PortfolioInitializer(IdentityPersistence identity, UserManag
     }
     private const string MaintenanceSql = """
         CREATE OR REPLACE FUNCTION public.portfolio_copy_seed(target text, observed timestamptz) RETURNS void
-        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public,pg_temp AS $$
         DECLARE copy_table text; projection text; epoch timestamptz;
         BEGIN
           IF target NOT IN ('portfolio_viewer','portfolio_dispatch_1','portfolio_dispatch_2','portfolio_dispatch_3') THEN RAISE EXCEPTION 'Invalid demo target'; END IF;
@@ -172,7 +203,7 @@ public sealed class PortfolioInitializer(IdentityPersistence identity, UserManag
         END $$;
         REVOKE ALL ON FUNCTION public.portfolio_copy_seed(text,timestamptz) FROM PUBLIC;
         CREATE OR REPLACE FUNCTION public.portfolio_prepare_slot(slot_id integer, expected_lease uuid, observed timestamptz) RETURNS void
-        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public,pg_temp AS $$
         DECLARE target text;
         BEGIN
           IF slot_id NOT BETWEEN 11 AND 13 THEN RAISE EXCEPTION 'Invalid demo slot'; END IF;
