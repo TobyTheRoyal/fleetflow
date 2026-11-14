@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY backend/src/FleetFlow.Api/FleetFlow.Api.csproj backend/src/FleetFlow.Api/packages.lock.json backend/src/FleetFlow.Api/
