@@ -9,7 +9,7 @@ RUN dotnet restore backend/src/FleetFlow.Api/FleetFlow.Api.csproj --locked-mode
 COPY backend/src/ backend/src/
 RUN dotnet publish backend/src/FleetFlow.Api/FleetFlow.Api.csproj --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.14 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0 AS final
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 COPY --from=build /app/publish ./
